@@ -17,6 +17,13 @@ public class Chit : BaseEntity
     public ChitStatus Status { get; set; } = ChitStatus.ACTIVE;
     public string? Notes { get; set; }
 
+    // Amount Taken / Chit Payout tracking fields
+    public decimal? AmountTaken { get; set; }
+    public int? AmountTakenMonth { get; set; }
+    public DateTime? AmountTakenDate { get; set; }
+    public decimal? InterestRate { get; set; }
+    public decimal? AdjustedMonthlyPayment { get; set; }
+
     // Navigation properties
     public virtual Customer? Customer { get; set; }
     public virtual ICollection<PaymentSchedule> PaymentSchedules { get; set; } = new List<PaymentSchedule>();

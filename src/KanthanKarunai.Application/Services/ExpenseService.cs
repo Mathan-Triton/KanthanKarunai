@@ -53,11 +53,18 @@ public class ExpenseService : IExpenseService
             throw new ArgumentException("Expense amount must be greater than zero.");
         }
 
-        int creatorId = _currentUserService.UserId ?? 1;
+        int creatorId = await GetValidCreatorIdAsync();
+
+        var expenseDateUtc = dto.ExpenseDate.Kind switch
+        {
+            DateTimeKind.Utc => dto.ExpenseDate,
+            DateTimeKind.Local => dto.ExpenseDate.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(dto.ExpenseDate, DateTimeKind.Utc)
+        };
 
         var expense = new Expense
         {
-            ExpenseDate = dto.ExpenseDate.ToUniversalTime(),
+            ExpenseDate = expenseDateUtc,
             Category = dto.Category,
             Amount = dto.Amount,
             PaymentMethod = dto.PaymentMethod,
@@ -98,7 +105,14 @@ public class ExpenseService : IExpenseService
             expense.Description
         };
 
-        expense.ExpenseDate = dto.ExpenseDate.ToUniversalTime();
+        var expenseDateUtc = dto.ExpenseDate.Kind switch
+        {
+            DateTimeKind.Utc => dto.ExpenseDate,
+            DateTimeKind.Local => dto.ExpenseDate.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(dto.ExpenseDate, DateTimeKind.Utc)
+        };
+
+        expense.ExpenseDate = expenseDateUtc;
         expense.Category = dto.Category;
         expense.Amount = dto.Amount;
         expense.PaymentMethod = dto.PaymentMethod;
@@ -131,5 +145,17 @@ public class ExpenseService : IExpenseService
 
         await _auditLogService.LogAsync("Expense Deleted", "expenses", id.ToString(), expense, null);
         return true;
+    }
+
+    private async Task<int> GetValidCreatorIdAsync()
+    {
+        if (_currentUserService.UserId.HasValue)
+        {
+            var userExists = await _dbContext.Users.AnyAsync(u => u.Id == _currentUserService.UserId.Value);
+            if (userExists) return _currentUserService.UserId.Value;
+        }
+
+        var fallbackUser = await _dbContext.Users.FirstOrDefaultAsync();
+        return fallbackUser != null ? fallbackUser.Id : 1;
     }
 }

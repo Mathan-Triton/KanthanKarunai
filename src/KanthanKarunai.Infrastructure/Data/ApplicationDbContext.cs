@@ -25,6 +25,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<LoanRepaymentSchedule> LoanRepaymentSchedules => Set<LoanRepaymentSchedule>();
     public DbSet<LoanPayment> LoanPayments => Set<LoanPayment>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<GetChit> GetChits => Set<GetChit>();
+    public DbSet<GetChitPayment> GetChitPayments => Set<GetChitPayment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -96,6 +98,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(e => e.EndDate).HasColumnName("end_date").IsRequired();
             entity.Property(e => e.Status).HasColumnName("status").HasConversion<string>().IsRequired();
             entity.Property(e => e.Notes).HasColumnName("notes");
+            entity.Property(e => e.AmountTaken).HasColumnName("amount_taken").HasPrecision(18, 2);
+            entity.Property(e => e.AmountTakenMonth).HasColumnName("amount_taken_month");
+            entity.Property(e => e.AmountTakenDate).HasColumnName("amount_taken_date");
+            entity.Property(e => e.InterestRate).HasColumnName("interest_rate").HasPrecision(5, 2);
+            entity.Property(e => e.AdjustedMonthlyPayment).HasColumnName("adjusted_monthly_payment").HasPrecision(18, 2);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").IsRequired();
 
@@ -384,6 +391,73 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.HasOne(d => d.Customer)
                 .WithMany()
                 .HasForeignKey(d => d.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // 13. GetChits table
+        modelBuilder.Entity<GetChit>(entity =>
+        {
+            entity.ToTable("get_chits");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CustomerId).HasColumnName("customer_id").IsRequired();
+            entity.Property(e => e.PrincipalAmount).HasColumnName("principal_amount").HasPrecision(18, 2).IsRequired();
+            entity.Property(e => e.InterestRate).HasColumnName("interest_rate").HasPrecision(5, 2).HasDefaultValue(1.00m).IsRequired();
+            entity.Property(e => e.ReceivedDate).HasColumnName("received_date").IsRequired();
+            entity.Property(e => e.OutstandingPrincipal).HasColumnName("outstanding_principal").HasPrecision(18, 2).IsRequired();
+            entity.Property(e => e.TotalInterestPaid).HasColumnName("total_interest_paid").HasPrecision(18, 2).HasDefaultValue(0);
+            entity.Property(e => e.TotalPrincipalPaid).HasColumnName("total_principal_paid").HasPrecision(18, 2).HasDefaultValue(0);
+            entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("ACTIVE");
+            entity.Property(e => e.Notes).HasColumnName("notes");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by").IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").IsRequired();
+
+            entity.HasOne(d => d.Customer)
+                .WithMany(p => p.GetChits)
+                .HasForeignKey(d => d.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.Creator)
+                .WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // 14. GetChitPayments table
+        modelBuilder.Entity<GetChitPayment>(entity =>
+        {
+            entity.ToTable("get_chit_payments");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.GetChitId).HasColumnName("get_chit_id").IsRequired();
+            entity.Property(e => e.CustomerId).HasColumnName("customer_id").IsRequired();
+            entity.Property(e => e.PaymentDate).HasColumnName("payment_date").IsRequired();
+            entity.HasIndex(e => e.PaymentDate);
+            entity.Property(e => e.PaymentAmount).HasColumnName("payment_amount").HasPrecision(18, 2).IsRequired();
+            entity.Property(e => e.InterestAmount).HasColumnName("interest_amount").HasPrecision(18, 2).IsRequired();
+            entity.Property(e => e.PrincipalPaidAmount).HasColumnName("principal_paid_amount").HasPrecision(18, 2).IsRequired();
+            entity.Property(e => e.RemainingPrincipal).HasColumnName("remaining_principal").HasPrecision(18, 2).IsRequired();
+            entity.Property(e => e.PaymentMethod).HasColumnName("payment_method").HasConversion<string>().IsRequired();
+            entity.Property(e => e.ReceiptNo).HasColumnName("receipt_no").IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.ReceiptNo).IsUnique();
+            entity.Property(e => e.Remarks).HasColumnName("remarks");
+            entity.Property(e => e.CollectedBy).HasColumnName("collected_by").IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
+
+            entity.HasOne(d => d.GetChit)
+                .WithMany(p => p.Payments)
+                .HasForeignKey(d => d.GetChitId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Customer)
+                .WithMany(p => p.GetChitPayments)
+                .HasForeignKey(d => d.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.Collector)
+                .WithMany()
+                .HasForeignKey(d => d.CollectedBy)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

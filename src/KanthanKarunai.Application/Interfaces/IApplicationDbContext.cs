@@ -21,6 +21,9 @@ public interface IApplicationDbContext
     DbSet<LoanRepaymentSchedule> LoanRepaymentSchedules { get; }
     DbSet<LoanPayment> LoanPayments { get; }
     DbSet<NotificationLog> NotificationLogs { get; }
+
+    DbSet<GetChit> GetChits { get; }
+    DbSet<GetChitPayment> GetChitPayments { get; }
     
     DatabaseFacade Database { get; }
 

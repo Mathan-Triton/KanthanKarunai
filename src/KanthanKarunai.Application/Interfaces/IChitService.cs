@@ -10,4 +10,8 @@ public interface IChitService
     Task<ChitDto?> GetChitByIdAsync(int id);
     Task<ChitDto> CreateChitAsync(CreateChitDto dto);
     Task<IEnumerable<PaymentScheduleDto>> GetScheduleAsync(int chitId);
+    Task<ChitDto> RecordAmountTakenAsync(RecordAmountTakenDto dto);
+    AmountTakenPreviewDto PreviewAmountTaken(int chitId, decimal amountTaken, int amountTakenMonth, decimal interestRate = 1.0m);
+    Task<IEnumerable<PendingChitDueItemDto>> GetPendingChitDuesAsync(string? query = null);
+    decimal CalculateAdjustedMonthlyPayment(decimal normalMonthlyPayment, decimal amountTaken, decimal interestRate);
 }

@@ -22,7 +22,7 @@ public class ReportsController : BaseApiController
     }
 
     [HttpGet("collections")]
-    [Authorize(Roles = "Admin,Staff")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<IEnumerable<PaymentDto>>>> GetCollectionsReport(
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
@@ -34,7 +34,7 @@ public class ReportsController : BaseApiController
     }
 
     [HttpGet("pending")]
-    [Authorize(Roles = "Admin,Staff")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<IEnumerable<PaymentScheduleDto>>>> GetPendingReport(
         [FromQuery] DateTime? asOfDate,
         [FromQuery] string? frequency,
@@ -45,7 +45,7 @@ public class ReportsController : BaseApiController
     }
 
     [HttpGet("payouts")]
-    [Authorize(Roles = "Admin,Staff")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<IEnumerable<ChitPayoutDto>>>> GetPayoutsReport(
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
@@ -56,7 +56,7 @@ public class ReportsController : BaseApiController
     }
 
     [HttpGet("customer/{id:int}")]
-    [Authorize(Roles = "Admin,Staff,Customer")]
+    [Authorize(Roles = "Admin,Customer")]
     public async Task<ActionResult<ApiResponse<CustomerStatementDto>>> GetCustomerStatement(int id)
     {
         if (User.IsInRole("Customer"))

@@ -30,15 +30,6 @@ export default function Customers() {
   const [userPassword, setUserPassword] = useState('');
   const [createdPasswordInfo, setCreatedPasswordInfo] = useState<string | null>(null);
 
-  // Chit Fields
-  const [chitName, setChitName] = useState('');
-  const [paymentFrequency, setPaymentFrequency] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('MONTHLY');
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [totalChitAmount, setTotalChitAmount] = useState('');
-  const [duration, setDuration] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [chitNotes, setChitNotes] = useState('');
-
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,16 +66,6 @@ export default function Customers() {
     setCreateUserAccount(false);
     setUserPassword('');
     setCreatedPasswordInfo(null);
-
-    // Reset Chit fields
-    setChitName('');
-    setPaymentFrequency('MONTHLY');
-    setPaymentAmount('');
-    setTotalChitAmount('');
-    setDuration('');
-    setStartDate(new Date().toISOString().split('T')[0]);
-    setChitNotes('');
-
     setError(null);
     setIsAddOpen(true);
   };
@@ -130,14 +111,6 @@ export default function Customers() {
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Validate chit fields if Chit enrollment is checked
-    if (chitName.trim()) {
-      if (!paymentAmount || !totalChitAmount || !duration || !startDate) {
-        setError('Please fill in all Chit details (Installment Amount, Total Amount, Duration, Start Date).');
-        return;
-      }
-    }
-
     setSubmitting(true);
     setError(null);
 
@@ -151,16 +124,7 @@ export default function Customers() {
         aadhaarNumber: aadhaarNumber ? aadhaarNumber.replace(/\D/g, '') : undefined,
         joinDate: new Date(joinDate).toISOString(),
         createUserAccount,
-        userPassword: createUserAccount ? (userPassword || undefined) : undefined,
-
-        // Chit details
-        chitName: chitName ? `${paymentFrequency === 'DAILY' ? 'Daily' : 'Monthly'} ${paymentAmount}` : undefined,
-        paymentFrequency: chitName ? paymentFrequency : undefined,
-        paymentAmount: chitName ? parseFloat(paymentAmount) : undefined,
-        totalChitAmount: chitName ? parseFloat(totalChitAmount) : undefined,
-        duration: chitName ? parseInt(duration) : undefined,
-        startDate: chitName ? new Date(startDate).toISOString() : undefined,
-        chitNotes: chitName && chitNotes.trim() ? chitNotes : undefined
+        userPassword: createUserAccount ? (userPassword || undefined) : undefined
       });
       
       if (createUserAccount && newCustomer.temporaryPassword) {
@@ -510,107 +474,7 @@ export default function Customers() {
                   </div>
                 </div>
 
-                {/* Optional Chit Enrollment */}
-                <div style={{ padding: '1.25rem', background: 'rgba(217,119,6,0.03)', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem', border: '1px solid rgba(217,119,6,0.15)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: chitName ? '1rem' : 0 }}>
-                    <input
-                      type="checkbox"
-                      id="enableChit"
-                      checked={!!chitName}
-                      onChange={(e) => setChitName(e.target.checked ? 'auto' : '')}
-                      style={{ width: '16px', height: '16px', accentColor: 'var(--accent-gold)', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="enableChit" style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', cursor: 'pointer' }}>
-                      Enroll in Chit Subscription (Optional)
-                    </label>
-                  </div>
-
-                  {chitName && (
-                    <div className="fade-in">
-                      <div className="form-group">
-                        <label className="form-label">Payment Frequency *</label>
-                        <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
-                          {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map(freq => (
-                            <label key={freq} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: paymentFrequency === freq ? 700 : 400, color: paymentFrequency === freq ? 'var(--accent-gold)' : 'var(--text-secondary)', fontSize: '1rem' }}>
-                              <input
-                                type="radio"
-                                name="payFreq"
-                                value={freq}
-                                checked={paymentFrequency === freq}
-                                onChange={() => setPaymentFrequency(freq)}
-                                style={{ accentColor: 'var(--accent-gold)', width: '16px', height: '16px' }}
-                              />
-                              {freq === 'DAILY' ? '📅 Daily' : freq === 'WEEKLY' ? '📆 Weekly' : '🗓️ Monthly'}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div className="form-group">
-                          <label className="form-label">Monthly / Installment Amount (₹) *</label>
-                          <input
-                            type="number"
-                            className="form-control"
-                            placeholder="e.g. 5000"
-                            value={paymentAmount}
-                            onChange={(e) => {
-                              setPaymentAmount(e.target.value);
-                              const p = parseFloat(e.target.value) || 0;
-                              const d = parseInt(duration) || 20;
-                              if (!totalChitAmount || totalChitAmount === '0') {
-                                setTotalChitAmount((p * d).toString());
-                              }
-                            }}
-                            required
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">Total Chit Value (₹) *</label>
-                          <input
-                            type="number"
-                            className="form-control"
-                            placeholder="e.g. 100000"
-                            value={totalChitAmount}
-                            onChange={(e) => setTotalChitAmount(e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div className="form-group">
-                          <label className="form-label">Duration (Months / Installments) *</label>
-                          <input
-                            type="number"
-                            className="form-control"
-                            placeholder="e.g. 20"
-                            value={duration}
-                            onChange={(e) => {
-                              setDuration(e.target.value);
-                              const d = parseInt(e.target.value) || 20;
-                              const p = parseFloat(paymentAmount) || 0;
-                              if (p > 0) setTotalChitAmount((p * d).toString());
-                            }}
-                            required
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">Starting Date / Month *</label>
-                          <input
-                            type="date"
-                            className="form-control"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setIsAddOpen(false)}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={submitting}>
                     {submitting ? 'Saving...' : 'Add Customer'}

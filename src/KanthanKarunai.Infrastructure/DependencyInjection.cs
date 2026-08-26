@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<ILoanService, LoanService>();
+        services.AddScoped<IGetChitService, GetChitService>();
         services.AddScoped<INotificationService, FirebaseNotificationService>();
 
         return services;

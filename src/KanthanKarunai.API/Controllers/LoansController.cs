@@ -10,7 +10,7 @@ using KanthanKarunai.Infrastructure.Data;
 
 namespace KanthanKarunai.API.Controllers;
 
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class LoansController : BaseApiController
 {
     private readonly ILoanService _loanService;
@@ -21,7 +21,6 @@ public class LoansController : BaseApiController
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<IEnumerable<LoanDto>>>> GetLoans()
     {
         var loans = await _loanService.GetLoansAsync();
@@ -37,7 +36,6 @@ public class LoansController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<LoanDto>>> CreateLoan([FromBody] CreateLoanDto dto)
     {
         try
@@ -52,12 +50,12 @@ public class LoansController : BaseApiController
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<LoanDto>.ErrorResponse($"Error creating loan: {ex.Message}"));
+            var msg = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            return StatusCode(500, ApiResponse<LoanDto>.ErrorResponse($"Error creating loan: {msg}"));
         }
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<LoanDto>>> UpdateLoan(int id, [FromBody] UpdateLoanStatusDto dto, [FromServices] ApplicationDbContext dbContext)
     {
         var loan = await dbContext.CustomerLoans.Include(l => l.Customer).FirstOrDefaultAsync(l => l.Id == id);
@@ -73,7 +71,6 @@ public class LoansController : BaseApiController
     }
 
     [HttpGet("pending")]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<IEnumerable<LoanRepaymentScheduleDto>>>> GetPendingLoans([FromQuery] string? query)
     {
         var pending = await _loanService.GetPendingLoanPaymentsAsync(query);

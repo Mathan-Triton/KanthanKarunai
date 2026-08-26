@@ -6,7 +6,7 @@ using KanthanKarunai.Application.Interfaces;
 
 namespace KanthanKarunai.API.Controllers;
 
-[Authorize(Roles = "Admin,Staff")]
+[Authorize(Roles = "Admin")]
 public class DashboardController : BaseApiController
 {
     private readonly IDashboardService _dashboardService;

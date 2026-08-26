@@ -8,7 +8,7 @@ using KanthanKarunai.Application.Interfaces;
 
 namespace KanthanKarunai.API.Controllers;
 
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class LoanPaymentsController : BaseApiController
 {
     private readonly ILoanService _loanService;
@@ -19,7 +19,6 @@ public class LoanPaymentsController : BaseApiController
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<IEnumerable<LoanPaymentDto>>>> GetLoanPayments()
     {
         var payments = await _loanService.GetLoanPaymentsAsync();
@@ -35,7 +34,6 @@ public class LoanPaymentsController : BaseApiController
     }
 
     [HttpGet("pending")]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<IEnumerable<LoanRepaymentScheduleDto>>>> GetPendingLoanPayments([FromQuery] string? query)
     {
         var pending = await _loanService.GetPendingLoanPaymentsAsync(query);
@@ -50,7 +48,6 @@ public class LoanPaymentsController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<LoanPaymentDto>>> CollectLoanPayment([FromBody] CreateLoanPaymentDto dto)
     {
         try

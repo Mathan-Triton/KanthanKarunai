@@ -55,21 +55,16 @@ function Sidebar({ user, onLogout }: SidebarProps) {
         { path: '/pending-payments', label: 'Pending Chit Dues', icon: Clock },
         { path: '/loans', label: 'Customer Loans', icon: Coins },
         { path: '/loan-payments', label: 'Loan Payments', icon: CreditCard },
-        { path: '/notifications', label: 'Notifications Log', icon: Bell },
-        { path: '/expenses', label: 'Operating Expenses', icon: Coins },
+        { path: '/expenses', label: 'Services / Expenses', icon: Coins },
         { path: '/reports', label: 'Reports Portal', icon: BarChart3 },
+        { path: '/notifications', label: 'Notifications Log', icon: Bell },
         { path: '/admin/users', label: 'Users Directory', icon: ShieldCheck }
       ];
     } else if (role === 'staff') {
       return [
-        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/customers', label: 'Customers', icon: Users },
         { path: '/chits', label: 'Chit Management', icon: ShieldCheck },
-        { path: '/payments', label: 'Chit Payments', icon: IndianRupee },
-        { path: '/pending-payments', label: 'Pending Chit Dues', icon: Clock },
-        { path: '/loans', label: 'Customer Loans', icon: Coins },
-        { path: '/loan-payments', label: 'Loan Payments', icon: CreditCard },
-        { path: '/notifications', label: 'Notifications Log', icon: Bell }
+        { path: '/payments', label: 'Chit Payment', icon: IndianRupee },
+        { path: '/pending-payments', label: 'Pending Chit Dues', icon: Clock }
       ];
     } else if (role === 'customer') {
       return [
@@ -215,9 +210,12 @@ export function ProtectedRoute({ children }: RouteProps) {
 
 export function AdminRoute({ children }: RouteProps) {
   const role = authApi.getCurrentUser()?.role?.toLowerCase();
-  return authApi.isAuthenticated() && role === 'admin' 
-    ? <>{children}</> 
-    : <Navigate to="/dashboard" replace />;
+  if (!authApi.isAuthenticated()) return <Navigate to="/login" replace />;
+  if (role === 'admin') return <>{children}</>;
+  if (role === 'staff') return <Navigate to="/chits" replace />;
+  if (role === 'customer') return <Navigate to="/customer-dashboard" replace />;
+  if (role === 'driver') return <Navigate to="/driver-dashboard" replace />;
+  return <Navigate to="/chits" replace />;
 }
 
 export function AdminOrStaffRoute({ children }: RouteProps) {
@@ -256,6 +254,7 @@ export default function App() {
 
   const getDefaultRedirectPath = () => {
     const role = authApi.getCurrentUser()?.role?.toLowerCase();
+    if (role === 'staff') return '/chits';
     if (role === 'customer') return '/customer-dashboard';
     if (role === 'driver') return '/driver-dashboard';
     return '/dashboard';
@@ -279,22 +278,22 @@ export default function App() {
             authenticated ? (
               <MainLayout onLogout={handleLogout}>
                 <Routes>
-                  {/* Admin & Staff Portals */}
-                  <Route path="/dashboard" element={<AdminOrStaffRoute><Dashboard /></AdminOrStaffRoute>} />
-                  <Route path="/customers" element={<AdminOrStaffRoute><Customers /></AdminOrStaffRoute>} />
-                  <Route path="/customers/:id" element={<AdminOrStaffRoute><CustomerDetails /></AdminOrStaffRoute>} />
-                  <Route path="/chits" element={<AdminOrStaffRoute><Chits /></AdminOrStaffRoute>} />
-                  <Route path="/loans" element={<AdminOrStaffRoute><Loans /></AdminOrStaffRoute>} />
-                  <Route path="/loans/:id" element={<AdminOrStaffRoute><LoanDetails /></AdminOrStaffRoute>} />
-                  <Route path="/loan-payments" element={<AdminOrStaffRoute><LoanPayments /></AdminOrStaffRoute>} />
-                  <Route path="/payments" element={<AdminOrStaffRoute><Payments /></AdminOrStaffRoute>} />
-                  <Route path="/pending-payments" element={<AdminOrStaffRoute><PendingPayments /></AdminOrStaffRoute>} />
-                  <Route path="/notifications" element={<AdminOrStaffRoute><Notifications /></AdminOrStaffRoute>} />
-                  
                   {/* Admin Only Portals */}
+                  <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+                  <Route path="/customers" element={<AdminRoute><Customers /></AdminRoute>} />
+                  <Route path="/customers/:id" element={<AdminRoute><CustomerDetails /></AdminRoute>} />
+                  <Route path="/loans" element={<AdminRoute><Loans /></AdminRoute>} />
+                  <Route path="/loans/:id" element={<AdminRoute><LoanDetails /></AdminRoute>} />
+                  <Route path="/loan-payments" element={<AdminRoute><LoanPayments /></AdminRoute>} />
                   <Route path="/expenses" element={<AdminRoute><Expenses /></AdminRoute>} />
                   <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+                  <Route path="/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />
                   <Route path="/admin/users" element={<AdminRoute><UsersList /></AdminRoute>} />
+
+                  {/* Admin & Staff Portals (Staff Allowed) */}
+                  <Route path="/chits" element={<AdminOrStaffRoute><Chits /></AdminOrStaffRoute>} />
+                  <Route path="/payments" element={<AdminOrStaffRoute><Payments /></AdminOrStaffRoute>} />
+                  <Route path="/pending-payments" element={<AdminOrStaffRoute><PendingPayments /></AdminOrStaffRoute>} />
 
                   {/* Customer Portal */}
                   <Route path="/customer-dashboard" element={<CustomerRoute><CustomerDashboard /></CustomerRoute>} />

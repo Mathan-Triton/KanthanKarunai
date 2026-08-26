@@ -26,4 +26,8 @@ public class Customer : BaseEntity
     public virtual ICollection<CustomerLoan> CustomerLoans { get; set; } = new List<CustomerLoan>();
     public virtual ICollection<LoanRepaymentSchedule> LoanRepaymentSchedules { get; set; } = new List<LoanRepaymentSchedule>();
     public virtual ICollection<LoanPayment> LoanPayments { get; set; } = new List<LoanPayment>();
+
+    // Get Chit Navigation properties
+    public virtual ICollection<GetChit> GetChits { get; set; } = new List<GetChit>();
+    public virtual ICollection<GetChitPayment> GetChitPayments { get; set; } = new List<GetChitPayment>();
 }

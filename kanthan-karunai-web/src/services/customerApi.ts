@@ -49,6 +49,55 @@ export interface UpdateCustomerData {
   status: string;
 }
 
+export interface CustomerSummaryPaymentItem {
+  installmentNo: number;
+  monthName: string;
+  dueDate: string;
+  expected: number;
+  paid: number;
+  pending: number;
+  status: string;
+  isAmountTakenMonth: boolean;
+  amountTaken?: number;
+}
+
+export interface CustomerSummary {
+  customerId: number;
+  customerCode: string;
+  name: string;
+  mobileNo: string;
+  alternativeMobile?: string;
+  address?: string;
+  city?: string;
+  aadhaarNumber?: string;
+  joinDate: string;
+  status: string;
+
+  // Chit Summary
+  chitId?: number;
+  chitName?: string;
+  chitAmount: number;
+  amountTaken?: number;
+  amountTakenMonth?: number;
+  amountTakenDate?: string;
+  originalMonthlyPayment: number;
+  currentMonthlyPayment: number;
+
+  // Separated Payments
+  paidThisMonth: number;
+  pendingThisMonth: number;
+  totalPaidAmount: number;
+  currentPendingAmount: number;
+
+  duration: number;
+  completedMonths: number;
+  remainingMonths: number;
+  remainingCollection: number;
+
+  // Payment History
+  paymentHistory: CustomerSummaryPaymentItem[];
+}
+
 export const customerApi = {
   getCustomers: async (query?: string, status?: string, frequency?: string): Promise<Customer[]> => {
     const params = new URLSearchParams();
@@ -70,6 +119,11 @@ export const customerApi = {
     return response.data.data;
   },
 
+  getCustomerSummary: async (id: number): Promise<CustomerSummary> => {
+    const response = await api.get(`/customers/${id}/summary`);
+    return response.data.data;
+  },
+
   createCustomer: async (data: CreateCustomerData): Promise<Customer> => {
     const response = await api.post('/customers', data);
     return response.data.data;
@@ -84,4 +138,5 @@ export const customerApi = {
     await api.delete(`/customers/${id}`);
   }
 };
+
 
