@@ -1,0 +1,6 @@
+@KanthanKarunai.API_HostAddress = http://localhost:5211
+
+GET {{KanthanKarunai.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
