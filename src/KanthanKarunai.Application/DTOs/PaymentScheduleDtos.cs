@@ -16,6 +16,10 @@ public class PaymentScheduleDto
     public DateTime DueDate { get; set; }
     public string DueMonth => DueDate.ToString("MMMM yyyy");
     public decimal ExpectedAmount { get; set; }
+    public decimal NormalDue { get; set; }
+    public decimal InterestPortion { get; set; }
+    public string? AmountTakenInfo { get; set; }
+    public decimal FinalMonthlyDue => ExpectedAmount;
     public decimal PaidAmount { get; set; }
     public decimal PendingAmount { get; set; }
     public decimal AdvanceAmount { get; set; }

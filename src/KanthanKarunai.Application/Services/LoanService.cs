@@ -483,13 +483,14 @@ public class LoanService : ILoanService
     
     private async Task<int> GetFallbackAdminIdAsync()
     {
-        int creatorId = _currentUserService.UserId ?? 1;
-        if (creatorId == 0)
+        if (_currentUserService.UserId.HasValue)
         {
-            var fallbackUser = await _dbContext.Users.FirstOrDefaultAsync();
-            creatorId = fallbackUser != null ? fallbackUser.Id : 1;
+            var userExists = await _dbContext.Users.AnyAsync(u => u.Id == _currentUserService.UserId.Value);
+            if (userExists) return _currentUserService.UserId.Value;
         }
-        return creatorId;
+
+        var fallbackUser = await _dbContext.Users.FirstOrDefaultAsync();
+        return fallbackUser != null ? fallbackUser.Id : 1;
     }
 
     private static LoanDto MapToDto(CustomerLoan loan)

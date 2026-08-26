@@ -47,6 +47,19 @@ public class CustomersController : BaseApiController
         return Ok(ApiResponse<CustomerDto>.SuccessResponse(customer, "Customer fetched successfully"));
     }
 
+    [HttpGet("{id:int}/summary")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<CustomerSummaryDto>>> GetCustomerSummary(int id)
+    {
+        var summary = await _customerService.GetCustomerSummaryAsync(id);
+        if (summary == null)
+        {
+            return NotFound(ApiResponse<CustomerSummaryDto>.ErrorResponse("Customer not found"));
+        }
+
+        return Ok(ApiResponse<CustomerSummaryDto>.SuccessResponse(summary, "Customer summary fetched successfully"));
+    }
+
     [HttpGet("search")]
     public async Task<ActionResult<ApiResponse<IEnumerable<CustomerDto>>>> SearchCustomers([FromQuery] string query)
     {
@@ -55,7 +68,7 @@ public class CustomersController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Staff")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<CustomerDto>>> CreateCustomer([FromBody] CreateCustomerDto dto)
     {
         try
@@ -71,7 +84,7 @@ public class CustomersController : BaseApiController
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin,Staff")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<CustomerDto>>> UpdateCustomer(int id, [FromBody] UpdateCustomerDto dto)
     {
         try
@@ -91,7 +104,7 @@ public class CustomersController : BaseApiController
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Admin,Staff")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteCustomer(int id)
     {
         var success = await _customerService.DeactivateCustomerAsync(id);

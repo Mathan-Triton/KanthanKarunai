@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { customerApi, Customer } from '../../services/customerApi';
+import { customerApi, Customer, CustomerSummary } from '../../services/customerApi';
 import { chitApi, Chit, PaymentSchedule, ChitPayout } from '../../services/chitApi';
 import { paymentApi, Payment } from '../../services/paymentApi';
 import { loansApi } from '../../api/loansApi';
@@ -25,6 +25,7 @@ export default function CustomerDetails() {
   const customerId = parseInt(id || '0');
 
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [summary, setSummary] = useState<CustomerSummary | null>(null);
   const [chits, setChits] = useState<Chit[]>([]);
   const [loans, setLoans] = useState<CustomerLoan[]>([]);
   const [schedules, setSchedules] = useState<PaymentSchedule[]>([]);
@@ -64,12 +65,13 @@ export default function CustomerDetails() {
       const cust = await customerApi.getCustomerById(customerId);
       setCustomer(cust);
 
-      const [allChits, payHistory, custLoans, custLoanPays, stmt] = await Promise.all([
+      const [allChits, payHistory, custLoans, custLoanPays, stmt, custSummary] = await Promise.all([
         chitApi.getChits(),
         paymentApi.getCustomerPayments(customerId),
         loansApi.getCustomerLoans(customerId),
         loansApi.getCustomerLoanPayments(customerId),
-        reportApi.getCustomerStatement(customerId).catch(() => null)
+        reportApi.getCustomerStatement(customerId).catch(() => null),
+        customerApi.getCustomerSummary(customerId).catch(() => null)
       ]);
 
       const customerChits = allChits.filter(c => c.customerId === customerId);
@@ -78,6 +80,7 @@ export default function CustomerDetails() {
       setPayments(payHistory);
       setLoanPayments(custLoanPays.data || []);
       setStatement(stmt);
+      setSummary(custSummary);
 
       if (customerChits.length > 0) {
         const activeChit = customerChits[0];
@@ -411,55 +414,185 @@ export default function CustomerDetails() {
               </div>
             </div>
 
-            {/* Quick Chits & Loans Summary */}
+            {/* Customer Summary & Chit Information */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Active Chits Card */}
+              {/* Chit Summary Card */}
               <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <h3 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <CalendarRange size={18} style={{ color: 'var(--accent-gold)' }} />
-                    Chit Subscriptions
+                    Chit Information & Summary
                   </h3>
-                  <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} onClick={() => setActiveTab('chits')}>
-                    View All
-                  </button>
+                  {activeChit && (
+                    <span className="badge badge-active" style={{ fontSize: '0.8rem' }}>
+                      {activeChit.chitName}
+                    </span>
+                  )}
                 </div>
 
-                {chits.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No chit subscriptions found.</p>
+                {!activeChit && !summary?.chitAmount ? (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No active chit package found for this customer.</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {chits.map(c => (
-                      <div key={c.id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <div>
-                          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent-gold)' }}>{c.chitName}</h4>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Monthly: {formatRupee(c.monthlyPayment || c.paymentAmount)} | Started: {c.startMonth || formatDate(c.startDate)}</span>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--success)', fontWeight: 600 }}>Paid: {formatRupee(c.paidAmount || 0)}</span>
-                          <span style={{ fontSize: '0.8rem', color: (c.pendingAmount || 0) > 0 ? 'var(--error)' : 'var(--text-muted)' }}>Pending: {formatRupee(c.pendingAmount || 0)}</span>
+                  <div>
+                    {/* Metrics Grid */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '1rem',
+                      marginBottom: '1.5rem'
+                    }}>
+                      {/* Chit Package Amount */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Chit Package Amount</span>
+                        <strong style={{ fontSize: '1.15rem', color: 'var(--accent-gold)' }}>
+                          {formatRupee(summary?.chitAmount || activeChit?.totalChitAmount || 0)}
+                        </strong>
+                      </div>
+
+                      {/* Amount Taken (Completely Separate from Paid Amount) */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(147, 51, 234, 0.06)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(147, 51, 234, 0.25)' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#c084fc', display: 'block', fontWeight: 600 }}>Amount Taken</span>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                          <strong style={{ fontSize: '1.15rem', color: '#c084fc' }}>
+                            {summary?.amountTaken ? formatRupee(summary.amountTaken) : (activeChit?.amountTaken ? formatRupee(activeChit.amountTaken) : '₹0')}
+                          </strong>
+                          {(summary?.amountTakenMonth || activeChit?.amountTakenMonth) && (
+                            <span style={{ fontSize: '0.75rem', color: '#e9d5ff' }}>
+                              (Month {summary?.amountTakenMonth || activeChit?.amountTakenMonth})
+                            </span>
+                          )}
                         </div>
                       </div>
-                    ))}
+
+                      {/* Original Monthly Payment */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Original Monthly Payment</span>
+                        <strong style={{ fontSize: '1.15rem', color: 'var(--text-primary)' }}>
+                          {formatRupee(summary?.originalMonthlyPayment || activeChit?.paymentAmount || 5000)}
+                        </strong>
+                      </div>
+
+                      {/* Current Monthly Payment */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Current Monthly Payment</span>
+                        <strong style={{ fontSize: '1.15rem', color: (summary?.amountTaken || activeChit?.amountTaken) ? 'var(--error)' : 'var(--text-primary)' }}>
+                          {formatRupee(summary?.currentMonthlyPayment || activeChit?.adjustedMonthlyPayment || activeChit?.paymentAmount || 6000)}
+                        </strong>
+                      </div>
+
+                      {/* Paid This Month */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(16,185,129,0.06)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--success)', display: 'block' }}>Paid This Month</span>
+                        <strong style={{ fontSize: '1.15rem', color: 'var(--success)' }}>
+                          {formatRupee(summary?.paidThisMonth || 0)}
+                        </strong>
+                      </div>
+
+                      {/* Current Month Pending */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(239,68,68,0.06)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--error)', display: 'block' }}>Pending This Month</span>
+                        <strong style={{ fontSize: '1.15rem', color: 'var(--error)' }}>
+                          {formatRupee(summary?.pendingThisMonth || 0)}
+                        </strong>
+                      </div>
+
+                      {/* Total Paid Amount (SUM of actual successful payments) */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(16,185,129,0.06)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--success)', display: 'block' }}>Total Paid (All Months)</span>
+                        <strong style={{ fontSize: '1.15rem', color: 'var(--success)' }}>
+                          {formatRupee(summary?.totalPaidAmount ?? payments.filter(p => p.chitId === activeChit?.id).reduce((s, p) => s + p.amount, 0))}
+                        </strong>
+                      </div>
+
+                      {/* Total Pending / Remaining Collection */}
+                      <div style={{ padding: '0.875rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>
+                          Remaining ({summary?.remainingMonths ?? 16} Months Left)
+                        </span>
+                        <strong style={{ fontSize: '1.15rem', color: 'var(--accent-gold)' }}>
+                          {formatRupee(summary?.remainingCollection || (summary?.remainingMonths ? summary.remainingMonths * (summary?.currentMonthlyPayment || 6000) : 0))}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Active Loans Card */}
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Coins size={18} style={{ color: '#818cf8' }} />
-                    Active Loans
+              {/* Customer Summary Payment History Table */}
+              {summary && summary.paymentHistory && summary.paymentHistory.length > 0 && (
+                <div className="card">
+                  <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Receipt size={18} style={{ color: 'var(--accent-gold)' }} />
+                    Payment History Breakdown
                   </h3>
-                  <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} onClick={() => setActiveTab('loans')}>
-                    View All
-                  </button>
+                  <div className="table-container" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                    <table className="table" style={{ fontSize: '0.9rem' }}>
+                      <thead>
+                        <tr>
+                          <th>Month</th>
+                          <th style={{ textAlign: 'right' }}>Expected</th>
+                          <th style={{ textAlign: 'right' }}>Paid</th>
+                          <th style={{ textAlign: 'right' }}>Pending</th>
+                          <th style={{ textAlign: 'center' }}>Amount Taken</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {summary.paymentHistory.map((ph) => {
+                          const isPaid = ph.status === 'PAID';
+                          const isPartial = ph.status === 'PARTIAL';
+                          return (
+                            <tr key={ph.installmentNo} style={{ background: ph.isAmountTakenMonth ? 'rgba(147, 51, 234, 0.05)' : undefined }}>
+                              <td style={{ fontWeight: 700 }}>
+                                {ph.monthName}
+                                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                  {formatDate(ph.dueDate)}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {formatRupee(ph.expected)}
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, color: ph.paid > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                                {formatRupee(ph.paid)}
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: 700, color: ph.pending > 0 ? 'var(--error)' : 'var(--text-muted)' }}>
+                                {formatRupee(ph.pending)}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                {ph.isAmountTakenMonth ? (
+                                  <span className="badge" style={{ background: 'rgba(147, 51, 234, 0.2)', color: '#c084fc', fontWeight: 700 }}>
+                                    {formatRupee(ph.amountTaken || summary.amountTaken || 0)} Taken
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
+                                )}
+                              </td>
+                              <td>
+                                <span className={`badge ${isPaid ? 'badge-active' : (isPartial ? 'badge-pending' : 'badge-overdue')}`}>
+                                  {ph.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+              )}
 
-                {loans.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No loans associated with this customer.</p>
-                ) : (
+              {/* Active Loans Card */}
+              {loans.length > 0 && (
+                <div className="card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Coins size={18} style={{ color: '#818cf8' }} />
+                      Active Loans
+                    </h3>
+                    <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} onClick={() => setActiveTab('loans')}>
+                      View All
+                    </button>
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {loans.map(l => (
                       <div key={l.id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -474,8 +607,8 @@ export default function CustomerDetails() {
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}

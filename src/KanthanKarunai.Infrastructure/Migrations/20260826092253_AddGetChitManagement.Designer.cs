@@ -3,6 +3,7 @@ using System;
 using KanthanKarunai.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KanthanKarunai.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826092253_AddGetChitManagement")]
+    partial class AddGetChitManagement
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -81,24 +84,6 @@ namespace KanthanKarunai.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<decimal?>("AdjustedMonthlyPayment")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("adjusted_monthly_payment");
-
-                    b.Property<decimal?>("AmountTaken")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("amount_taken");
-
-                    b.Property<DateTime?>("AmountTakenDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("amount_taken_date");
-
-                    b.Property<int?>("AmountTakenMonth")
-                        .HasColumnType("integer")
-                        .HasColumnName("amount_taken_month");
-
                     b.Property<string>("ChitName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -120,11 +105,6 @@ namespace KanthanKarunai.Infrastructure.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_date");
-
-                    b.Property<decimal?>("InterestRate")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)")
-                        .HasColumnName("interest_rate");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")

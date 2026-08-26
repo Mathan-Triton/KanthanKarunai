@@ -21,6 +21,12 @@ public class ChitService : IChitService
         _auditLogService = auditLogService;
     }
 
+    public decimal CalculateAdjustedMonthlyPayment(decimal normalMonthlyPayment, decimal amountTaken, decimal interestRate)
+    {
+        if (amountTaken <= 0 || interestRate <= 0) return normalMonthlyPayment;
+        decimal monthlyInterest = Math.Round(amountTaken * (interestRate / 100m), 2);
+        return normalMonthlyPayment + monthlyInterest;
+    }
 
     public async Task<IEnumerable<ChitDto>> GetChitsAsync()
     {
@@ -53,18 +59,27 @@ public class ChitService : IChitService
             throw new ArgumentException("Customer not found.");
         }
 
+        decimal chitAmount = dto.ChitAmount.HasValue && dto.ChitAmount.Value > 0
+            ? dto.ChitAmount.Value
+            : (dto.TotalChitAmount.HasValue && dto.TotalChitAmount.Value > 0 ? dto.TotalChitAmount.Value : 0);
+
         decimal monthlyPayment = dto.MonthlyPayment > 0 ? dto.MonthlyPayment : (dto.PaymentAmount ?? 0);
         if (monthlyPayment <= 0)
         {
             throw new ArgumentException("Monthly payment amount must be greater than zero.");
         }
 
-        int duration = dto.Duration ?? 20;
+        // Auto-calculate Total Months = Chit Amount / Monthly Payment
+        int duration = dto.Duration.HasValue && dto.Duration.Value > 0
+            ? dto.Duration.Value
+            : (chitAmount > 0 ? (int)Math.Ceiling(chitAmount / monthlyPayment) : 20);
+
         if (duration <= 0) duration = 20;
 
-        decimal totalAmount = dto.TotalChitAmount.HasValue && dto.TotalChitAmount.Value > 0 
-            ? dto.TotalChitAmount.Value 
-            : monthlyPayment * duration;
+        if (chitAmount <= 0)
+        {
+            chitAmount = monthlyPayment * duration;
+        }
 
         // Parse StartDate from StartMonth or StartDate
         DateTime startDate = DateTime.UtcNow.Date;
@@ -102,7 +117,7 @@ public class ChitService : IChitService
 
         string chitName = !string.IsNullOrWhiteSpace(dto.ChitName) 
             ? dto.ChitName.Trim() 
-            : $"{customer.Name} - ₹{monthlyPayment:N0} Chit";
+            : $"{customer.Name} - ₹{chitAmount:N0} Chit";
 
         var chit = new Chit
         {
@@ -110,7 +125,7 @@ public class ChitService : IChitService
             ChitName = chitName,
             PaymentFrequency = dto.PaymentFrequency,
             PaymentAmount = monthlyPayment,
-            TotalChitAmount = totalAmount,
+            TotalChitAmount = chitAmount,
             Duration = duration,
             StartDate = DateTime.SpecifyKind(startDate, DateTimeKind.Utc),
             EndDate = DateTime.SpecifyKind(endDate, DateTimeKind.Utc),
@@ -123,7 +138,7 @@ public class ChitService : IChitService
         _dbContext.Chits.Add(chit);
         await _dbContext.SaveChangesAsync();
 
-        // Generate schedule
+        // Generate initial schedule with normal monthly payment
         var schedules = new List<PaymentSchedule>();
         for (int i = 1; i <= duration; i++)
         {
@@ -167,17 +182,292 @@ public class ChitService : IChitService
         return MapToDto(chit);
     }
 
+    public async Task<ChitDto> RecordAmountTakenAsync(RecordAmountTakenDto dto)
+    {
+        var chit = await _dbContext.Chits
+            .Include(c => c.Customer)
+            .Include(c => c.PaymentSchedules)
+            .FirstOrDefaultAsync(c => c.Id == dto.ChitId);
+
+        if (chit == null)
+        {
+            throw new ArgumentException("Chit package not found.");
+        }
+
+        if (dto.AmountTaken <= 0)
+        {
+            throw new ArgumentException("Amount taken must be greater than zero.");
+        }
+
+        if (dto.AmountTakenMonth < 1 || dto.AmountTakenMonth > chit.Duration)
+        {
+            throw new ArgumentException($"Amount taken month must be between 1 and {chit.Duration}.");
+        }
+
+        decimal rate = dto.InterestRate.HasValue && dto.InterestRate.Value > 0 ? dto.InterestRate.Value : 1.0m;
+        decimal adjustedMonthly = CalculateAdjustedMonthlyPayment(chit.PaymentAmount, dto.AmountTaken, rate);
+
+        DateTime takenDate = dto.AmountTakenDate.HasValue 
+            ? DateTime.SpecifyKind(dto.AmountTakenDate.Value, DateTimeKind.Utc) 
+            : DateTime.UtcNow;
+
+        var oldState = new
+        {
+            chit.AmountTaken,
+            chit.AmountTakenMonth,
+            chit.AmountTakenDate,
+            chit.InterestRate,
+            chit.AdjustedMonthlyPayment
+        };
+
+        chit.AmountTaken = dto.AmountTaken;
+        chit.AmountTakenMonth = dto.AmountTakenMonth;
+        chit.AmountTakenDate = takenDate;
+        chit.InterestRate = rate;
+        chit.AdjustedMonthlyPayment = adjustedMonthly;
+        chit.UpdatedAt = DateTime.UtcNow;
+
+        // Update future payment schedules (InstallmentNo > AmountTakenMonth)
+        if (chit.PaymentSchedules != null && chit.PaymentSchedules.Any())
+        {
+            foreach (var schedule in chit.PaymentSchedules)
+            {
+                if (schedule.InstallmentNo > dto.AmountTakenMonth)
+                {
+                    schedule.ExpectedAmount = adjustedMonthly;
+                    schedule.PendingAmount = Math.Max(0, adjustedMonthly - schedule.PaidAmount);
+                    if (schedule.PaidAmount >= adjustedMonthly)
+                    {
+                        schedule.Status = PaymentStatus.PAID;
+                    }
+                    else if (schedule.PaidAmount > 0)
+                    {
+                        schedule.Status = PaymentStatus.PARTIAL;
+                    }
+                    else
+                    {
+                        schedule.Status = PaymentStatus.PENDING;
+                    }
+                    schedule.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+        await _auditLogService.LogAsync("Chit Amount Taken Recorded", "chits", chit.Id.ToString(), oldState, chit);
+
+        return MapToDto(chit);
+    }
+
+    public AmountTakenPreviewDto PreviewAmountTaken(int chitId, decimal amountTaken, int amountTakenMonth, decimal interestRate = 1.0m)
+    {
+        var chit = _dbContext.Chits
+            .Include(c => c.PaymentSchedules)
+            .FirstOrDefault(c => c.Id == chitId);
+
+        if (chit == null)
+        {
+            throw new ArgumentException("Chit package not found.");
+        }
+
+        decimal rate = interestRate > 0 ? interestRate : 1.0m;
+        decimal monthlyInterest = Math.Round(amountTaken * (rate / 100m), 2);
+        decimal adjustedMonthly = chit.PaymentAmount + monthlyInterest;
+
+        int completed = amountTakenMonth;
+        int remaining = Math.Max(0, chit.Duration - completed);
+        decimal remainingCollection = remaining * adjustedMonthly;
+
+        return new AmountTakenPreviewDto
+        {
+            ChitId = chitId,
+            ChitAmount = chit.TotalChitAmount,
+            Duration = chit.Duration,
+            MonthlyPayment = chit.PaymentAmount,
+            AmountTaken = amountTaken,
+            AmountTakenMonth = amountTakenMonth,
+            InterestRate = rate,
+            MonthlyInterestAmount = monthlyInterest,
+            AdjustedMonthlyPayment = adjustedMonthly,
+            CompletedMonths = completed,
+            RemainingMonths = remaining,
+            RemainingCollection = remainingCollection
+        };
+    }
+
+    public async Task<IEnumerable<PendingChitDueItemDto>> GetPendingChitDuesAsync(string? query = null)
+    {
+        var chits = await _dbContext.Chits
+            .Include(c => c.Customer)
+            .Include(c => c.PaymentSchedules)
+            .Where(c => c.Status == ChitStatus.ACTIVE)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var lower = query.ToLower();
+            chits = chits.Where(c => c.Customer != null &&
+                                    (c.Customer.Name.ToLower().Contains(lower) ||
+                                     c.Customer.CustomerCode.ToLower().Contains(lower) ||
+                                     c.Customer.MobileNo.Contains(lower))).ToList();
+        }
+
+        var now = DateTime.UtcNow;
+        var currentMonthEnd = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 23, 59, 59, DateTimeKind.Utc);
+
+        return chits.Select(c =>
+        {
+            var schedules = c.PaymentSchedules ?? new List<PaymentSchedule>();
+            int completedMonths = schedules.Count(s => s.Status == PaymentStatus.PAID || s.PaidAmount >= s.ExpectedAmount);
+            int remainingMonths = Math.Max(0, c.Duration - completedMonths);
+
+            // Determine current monthly due
+            decimal currentMonthlyDue = c.AdjustedMonthlyPayment.HasValue && c.AmountTakenMonth.HasValue
+                ? (completedMonths >= c.AmountTakenMonth.Value ? c.AdjustedMonthlyPayment.Value : c.PaymentAmount)
+                : c.PaymentAmount;
+
+            // Pending amount till current month
+            decimal expectedTillNow = schedules.Where(s => s.DueDate <= currentMonthEnd).Sum(s => s.ExpectedAmount);
+            decimal totalPaid = schedules.Sum(s => s.PaidAmount);
+            decimal pendingDue = Math.Max(0, expectedTillNow - totalPaid);
+
+            // Next payment amount
+            var nextUnpaid = schedules.Where(s => s.Status != PaymentStatus.PAID).OrderBy(s => s.InstallmentNo).FirstOrDefault();
+            decimal nextPayment = nextUnpaid != null ? nextUnpaid.ExpectedAmount : currentMonthlyDue;
+
+            return new PendingChitDueItemDto
+            {
+                ChitId = c.Id,
+                CustomerId = c.CustomerId,
+                CustomerName = c.Customer?.Name ?? "Customer",
+                CustomerCode = c.Customer?.CustomerCode ?? "-",
+                CustomerMobile = c.Customer?.MobileNo ?? "-",
+                ChitAmount = c.TotalChitAmount,
+                Duration = c.Duration,
+                MonthlyBeforeAmountTaken = c.PaymentAmount,
+                AmountTaken = c.AmountTaken,
+                AmountTakenMonth = c.AmountTakenMonth,
+                CompletedMonths = completedMonths,
+                RemainingMonths = remainingMonths,
+                MonthlyAfterAmountTaken = c.AdjustedMonthlyPayment,
+                CurrentMonthlyDue = currentMonthlyDue,
+                PendingChitDue = pendingDue > 0 ? pendingDue : currentMonthlyDue,
+                NextPayment = nextPayment,
+                Status = c.Status.ToString()
+            };
+        });
+    }
+
+    public async Task<IEnumerable<PaymentScheduleDto>> GetScheduleAsync(int chitId)
+    {
+        var chit = await _dbContext.Chits
+            .Include(c => c.Customer)
+            .Include(c => c.PaymentSchedules)
+            .FirstOrDefaultAsync(c => c.Id == chitId);
+
+        if (chit == null) return Enumerable.Empty<PaymentScheduleDto>();
+
+        var schedules = chit.PaymentSchedules.OrderBy(ps => ps.InstallmentNo).ToList();
+        var now = DateTime.UtcNow;
+        var currentMonthEnd = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 23, 59, 59, DateTimeKind.Utc);
+
+        return schedules.Select(ps =>
+        {
+            var isUpcoming = ps.DueDate > currentMonthEnd && ps.PaidAmount == 0;
+            var isPaid = ps.PaidAmount >= ps.ExpectedAmount;
+            var status = isPaid 
+                ? PaymentStatus.PAID 
+                : (isUpcoming ? PaymentStatus.PENDING : (ps.PaidAmount > 0 ? PaymentStatus.PARTIAL : PaymentStatus.PENDING));
+
+            var pendingAmount = isPaid ? 0 : (isUpcoming ? 0 : Math.Max(0, ps.ExpectedAmount - ps.PaidAmount));
+
+            decimal normalDue = chit.PaymentAmount;
+            decimal interestPortion = (chit.AmountTakenMonth.HasValue && ps.InstallmentNo > chit.AmountTakenMonth.Value)
+                ? (ps.ExpectedAmount - normalDue)
+                : 0m;
+
+            string amountTakenInfo = "No";
+            if (chit.AmountTakenMonth.HasValue)
+            {
+                if (ps.InstallmentNo == chit.AmountTakenMonth.Value)
+                {
+                    amountTakenInfo = $"₹{chit.AmountTaken:N0}";
+                }
+                else if (ps.InstallmentNo > chit.AmountTakenMonth.Value)
+                {
+                    amountTakenInfo = "Yes";
+                }
+            }
+
+            return new PaymentScheduleDto
+            {
+                Id = ps.Id,
+                ChitId = ps.ChitId,
+                ChitName = chit.ChitName,
+                CustomerId = ps.CustomerId,
+                CustomerName = chit.Customer?.Name,
+                CustomerCode = chit.Customer?.CustomerCode,
+                CustomerMobile = chit.Customer?.MobileNo,
+                InstallmentNo = ps.InstallmentNo,
+                DueDate = ps.DueDate,
+                ExpectedAmount = ps.ExpectedAmount,
+                NormalDue = normalDue,
+                InterestPortion = interestPortion,
+                AmountTakenInfo = amountTakenInfo,
+                PaidAmount = ps.PaidAmount,
+                PendingAmount = pendingAmount,
+                AdvanceAmount = ps.AdvanceAmount,
+                Status = status,
+                PaidDate = ps.PaidDate,
+                OverdueDays = !isPaid && now > ps.DueDate && pendingAmount > 0
+                    ? (now - ps.DueDate).Days
+                    : 0
+            };
+        });
+    }
+
     private static ChitDto MapToDto(Chit c)
     {
         var schedules = c.PaymentSchedules ?? new List<PaymentSchedule>();
-        decimal paidAmount = schedules.Sum(s => s.PaidAmount);
-        decimal pendingAmount = schedules.Sum(s => s.PendingAmount);
+        decimal totalPaid = schedules.Sum(s => s.PaidAmount);
 
-        // Find next unpaid / pending installment
+        // Completed Months
+        int completedMonths = schedules.Count(s => s.Status == PaymentStatus.PAID || s.PaidAmount >= s.ExpectedAmount);
+        int remainingMonths = Math.Max(0, c.Duration - completedMonths);
+
+        // Remaining collection across unpaid installments
+        decimal remainingCollection = schedules
+            .Where(s => s.Status != PaymentStatus.PAID && s.PaidAmount < s.ExpectedAmount)
+            .Sum(s => s.ExpectedAmount - s.PaidAmount);
+
+        if (remainingCollection == 0 && remainingMonths > 0)
+        {
+            decimal monthly = c.AdjustedMonthlyPayment ?? c.PaymentAmount;
+            remainingCollection = remainingMonths * monthly;
+        }
+
+        var now = DateTime.UtcNow;
+        var currentMonthEnd = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 23, 59, 59, DateTimeKind.Utc);
+
+        // Expected amount till current month
+        decimal expectedTillCurrentMonth = schedules
+            .Where(s => s.DueDate <= currentMonthEnd)
+            .Sum(s => s.ExpectedAmount);
+
+        decimal pendingChitDue = Math.Max(0, expectedTillCurrentMonth - totalPaid);
+
+        // Next pending / upcoming schedule
         var nextSchedule = schedules
             .Where(s => s.Status == PaymentStatus.PENDING || s.Status == PaymentStatus.PARTIAL)
             .OrderBy(s => s.InstallmentNo)
             .FirstOrDefault();
+
+        decimal currentMonthlyDue = c.AdjustedMonthlyPayment.HasValue && c.AmountTakenMonth.HasValue
+            ? (completedMonths >= c.AmountTakenMonth.Value ? c.AdjustedMonthlyPayment.Value : c.PaymentAmount)
+            : c.PaymentAmount;
+
+        decimal nextPaymentAmount = nextSchedule != null ? nextSchedule.ExpectedAmount : currentMonthlyDue;
 
         return new ChitDto
         {
@@ -194,44 +484,28 @@ public class ChitService : IChitService
             StartDate = c.StartDate,
             StartMonth = c.StartDate.ToString("MMMM yyyy"),
             EndDate = c.EndDate,
-            PaidAmount = paidAmount,
-            PendingAmount = pendingAmount,
-            NextPaymentMonth = nextSchedule != null ? nextSchedule.DueDate.ToString("MMMM yyyy") : (c.Status == ChitStatus.COMPLETED ? "Completed" : "N/A"),
+            AmountTaken = c.AmountTaken,
+            AmountTakenMonth = c.AmountTakenMonth,
+            AmountTakenDate = c.AmountTakenDate,
+            InterestRate = c.InterestRate,
+            AdjustedMonthlyPayment = c.AdjustedMonthlyPayment,
+            CompletedMonths = completedMonths,
+            RemainingMonths = remainingMonths,
+            CurrentMonthlyDue = currentMonthlyDue,
+            RemainingCollection = remainingCollection,
+            TotalPaid = totalPaid,
+            PaidAmount = totalPaid,
+            RemainingChitAmount = Math.Max(0, c.TotalChitAmount - totalPaid),
+            RemainingAmount = Math.Max(0, c.TotalChitAmount - totalPaid),
+            ExpectedTillCurrentMonth = expectedTillCurrentMonth,
+            PendingChitDue = pendingChitDue > 0 ? pendingChitDue : (schedules.Any(s => s.DueDate <= currentMonthEnd) ? 0 : currentMonthlyDue),
+            PendingAmount = pendingChitDue,
+            NextPaymentAmount = nextPaymentAmount,
+            NextPaymentMonth = nextSchedule != null ? nextSchedule.DueDate.ToString("MMMM yyyy") : (c.Status == ChitStatus.COMPLETED || remainingCollection == 0 ? "Completed" : "N/A"),
             NextPaymentDueDate = nextSchedule?.DueDate,
-            Status = c.Status,
+            Status = (remainingCollection == 0 && totalPaid > 0) ? ChitStatus.COMPLETED : c.Status,
             Notes = c.Notes,
             CreatedAt = c.CreatedAt
         };
-    }
-
-    public async Task<IEnumerable<PaymentScheduleDto>> GetScheduleAsync(int chitId)
-    {
-        var schedules = await _dbContext.PaymentSchedules
-            .Include(ps => ps.Customer)
-            .Include(ps => ps.Chit)
-            .Where(ps => ps.ChitId == chitId)
-            .OrderBy(ps => ps.InstallmentNo)
-            .ToListAsync();
-
-        return schedules.Select(ps => new PaymentScheduleDto
-        {
-            Id = ps.Id,
-            ChitId = ps.ChitId,
-            ChitName = ps.Chit != null ? ps.Chit.ChitName : null,
-            CustomerId = ps.CustomerId,
-            CustomerName = ps.Customer != null ? ps.Customer.Name : null,
-            CustomerCode = ps.Customer != null ? ps.Customer.CustomerCode : null,
-            InstallmentNo = ps.InstallmentNo,
-            DueDate = ps.DueDate,
-            ExpectedAmount = ps.ExpectedAmount,
-            PaidAmount = ps.PaidAmount,
-            PendingAmount = ps.PendingAmount,
-            AdvanceAmount = ps.AdvanceAmount,
-            Status = ps.Status,
-            PaidDate = ps.PaidDate,
-            OverdueDays = (ps.Status == PaymentStatus.PENDING || ps.Status == PaymentStatus.PARTIAL) && DateTime.UtcNow > ps.DueDate
-                ? (DateTime.UtcNow - ps.DueDate).Days
-                : 0
-        });
     }
 }

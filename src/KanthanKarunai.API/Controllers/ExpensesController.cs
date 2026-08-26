@@ -37,6 +37,11 @@ public class ExpensesController : BaseApiController
         {
             return BadRequest(ApiResponse<ExpenseDto>.ErrorResponse(ex.Message));
         }
+        catch (Exception ex)
+        {
+            var msg = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            return StatusCode(500, ApiResponse<ExpenseDto>.ErrorResponse($"Error creating expense: {msg}"));
+        }
     }
 
     [HttpPut("{id:int}")]
@@ -55,6 +60,11 @@ public class ExpensesController : BaseApiController
         catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<ExpenseDto>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            return StatusCode(500, ApiResponse<ExpenseDto>.ErrorResponse($"Error updating expense: {msg}"));
         }
     }
 

@@ -7,7 +7,7 @@ using KanthanKarunai.Application.Interfaces;
 
 namespace KanthanKarunai.API.Controllers;
 
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class NotificationsController : BaseApiController
 {
     private readonly INotificationService _notificationService;

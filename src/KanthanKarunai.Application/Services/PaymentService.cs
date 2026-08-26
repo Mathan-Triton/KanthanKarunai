@@ -167,6 +167,11 @@ public class PaymentService : IPaymentService
             InstallmentNo = ps.InstallmentNo,
             DueDate = ps.DueDate,
             ExpectedAmount = ps.ExpectedAmount,
+            NormalDue = ps.Chit != null ? ps.Chit.PaymentAmount : ps.ExpectedAmount,
+            InterestPortion = ps.Chit != null ? Math.Max(0, ps.ExpectedAmount - ps.Chit.PaymentAmount) : 0,
+            AmountTakenInfo = (ps.Chit != null && ps.Chit.AmountTakenMonth.HasValue && ps.Chit.AmountTakenMonth.Value == ps.InstallmentNo)
+                ? $"₹{ps.Chit.AmountTaken:N0}"
+                : (ps.Chit != null && ps.Chit.AmountTakenMonth.HasValue && ps.InstallmentNo > ps.Chit.AmountTakenMonth.Value ? "Yes" : "No"),
             PaidAmount = ps.PaidAmount,
             PendingAmount = ps.PendingAmount,
             AdvanceAmount = ps.AdvanceAmount,
@@ -210,16 +215,27 @@ public class PaymentService : IPaymentService
                 .Where(s => s.DueDate <= currentMonthEnd && (s.Status == PaymentStatus.PENDING || s.Status == PaymentStatus.PARTIAL))
                 .Sum(s => s.PendingAmount);
 
-            // Upcoming months
-            decimal upcomingMonthPayment = schedules
-                .Where(s => s.DueDate > currentMonthEnd && (s.Status == PaymentStatus.PENDING || s.Status == PaymentStatus.PARTIAL))
-                .Sum(s => s.ExpectedAmount);
-
-            // Next pending month
+            // Next pending schedule (e.g. current pending or first upcoming pending)
             var nextPendingSchedule = schedules
                 .Where(s => s.Status == PaymentStatus.PENDING || s.Status == PaymentStatus.PARTIAL)
                 .OrderBy(s => s.InstallmentNo)
                 .FirstOrDefault();
+
+            // Next upcoming installment after current month
+            var nextUpcomingSchedule = schedules
+                .Where(s => s.DueDate > currentMonthEnd && (s.Status == PaymentStatus.PENDING || s.Status == PaymentStatus.PARTIAL))
+                .OrderBy(s => s.InstallmentNo)
+                .FirstOrDefault();
+
+            // Monthly payment reflects adjusted amount if taken, or the next pending schedule expected amount, or base payment amount
+            decimal currentMonthlyPayment = nextPendingSchedule?.ExpectedAmount 
+                                           ?? chit.AdjustedMonthlyPayment 
+                                           ?? chit.PaymentAmount;
+
+            // Upcoming month payment is the single installment expected amount for the upcoming month (e.g. ₹6,000, not sum of all 19 months)
+            decimal upcomingMonthPayment = nextUpcomingSchedule?.ExpectedAmount 
+                                          ?? nextPendingSchedule?.ExpectedAmount 
+                                          ?? currentMonthlyPayment;
 
             string? nextPendingMonthStr = nextPendingSchedule?.DueDate.ToString("MMMM yyyy");
             string paymentStatus = totalPending == 0 ? "Paid" : (currentMonthPending > 0 ? "Pending" : "Upcoming");
@@ -236,6 +252,11 @@ public class PaymentService : IPaymentService
                 InstallmentNo = ps.InstallmentNo,
                 DueDate = ps.DueDate,
                 ExpectedAmount = ps.ExpectedAmount,
+                NormalDue = chit.PaymentAmount,
+                InterestPortion = Math.Max(0, ps.ExpectedAmount - chit.PaymentAmount),
+                AmountTakenInfo = (chit.AmountTakenMonth.HasValue && chit.AmountTakenMonth.Value == ps.InstallmentNo)
+                    ? $"₹{chit.AmountTaken:N0}"
+                    : (chit.AmountTakenMonth.HasValue && ps.InstallmentNo > chit.AmountTakenMonth.Value ? "Yes" : "No"),
                 PaidAmount = ps.PaidAmount,
                 PendingAmount = ps.PendingAmount,
                 AdvanceAmount = ps.AdvanceAmount,
@@ -252,7 +273,7 @@ public class PaymentService : IPaymentService
                 MobileNo = customer.MobileNo,
                 ChitId = chit.Id,
                 ChitName = chit.ChitName,
-                MonthlyPayment = chit.PaymentAmount,
+                MonthlyPayment = currentMonthlyPayment,
                 TotalPaidAmount = totalPaid,
                 TotalPendingAmount = totalPending,
                 CurrentMonthPending = currentMonthPending,
@@ -303,18 +324,10 @@ public class PaymentService : IPaymentService
             // Get Collector Id robustly
             int collectorId = await GetValidCollectorIdAsync();
 
-            // 1. Generate Receipt Number
+            // 1. Generate Receipt Number Prefix
             var istTime = DateTime.UtcNow.AddHours(5.5);
             var todayStr = istTime.ToString("yyyyMMdd");
             var prefix = $"KC-{todayStr}-";
-
-            int nextIndex = 1;
-            string receiptNo = $"{prefix}{nextIndex:D4}";
-            while (await _dbContext.Payments.AnyAsync(p => p.ReceiptNo == receiptNo))
-            {
-                nextIndex++;
-                receiptNo = $"{prefix}{nextIndex:D4}";
-            }
 
             // 2. Fetch all unpaid schedule records for this chit sorted by installment number
             var schedules = await _dbContext.PaymentSchedules
@@ -387,7 +400,7 @@ public class PaymentService : IPaymentService
                             PaymentMonth = schedMonth,
                             PaymentType = "INSTALLMENT",
                             PaymentMethod = dto.PaymentMethod,
-                            ReceiptNo = receiptNo,
+                            ReceiptNo = await GenerateUniqueReceiptNoAsync(prefix),
                             Notes = notesToSave,
                             CollectedBy = collectorId,
                             CreatedAt = DateTime.UtcNow
@@ -426,7 +439,7 @@ public class PaymentService : IPaymentService
                             PaymentMonth = schedMonth,
                             PaymentType = "INSTALLMENT",
                             PaymentMethod = dto.PaymentMethod,
-                            ReceiptNo = receiptNo,
+                            ReceiptNo = await GenerateUniqueReceiptNoAsync(prefix),
                             Notes = notesToSave,
                             CollectedBy = collectorId,
                             CreatedAt = DateTime.UtcNow
@@ -478,7 +491,7 @@ public class PaymentService : IPaymentService
                         PaymentMonth = monthStr,
                         PaymentType = "ADVANCE",
                         PaymentMethod = dto.PaymentMethod,
-                        ReceiptNo = receiptNo,
+                        ReceiptNo = await GenerateUniqueReceiptNoAsync(prefix),
                         Notes = notesToSave,
                         CollectedBy = collectorId,
                         CreatedAt = DateTime.UtcNow
@@ -506,23 +519,20 @@ public class PaymentService : IPaymentService
 
             // 4. Send Firebase notification to customer immediately after successful database save!
             // Failure to send notification will NOT rollback payment.
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    await _notificationService.SendChitPaymentNotificationAsync(
-                        customer.Id, 
-                        lastCreatedPayment.Id, 
-                        customer.Name, 
-                        customer.MobileNo, 
-                        dto.Amount, 
-                        monthStr);
-                }
-                catch
-                {
-                    // Swallowed gracefully as per requirements
-                }
-            });
+                await _notificationService.SendChitPaymentNotificationAsync(
+                    customer.Id, 
+                    lastCreatedPayment.Id, 
+                    customer.Name, 
+                    customer.MobileNo, 
+                    dto.Amount, 
+                    monthStr);
+            }
+            catch (Exception)
+            {
+                // Notification logged or swallowed gracefully
+            }
 
             return new PaymentDto
             {
@@ -549,6 +559,22 @@ public class PaymentService : IPaymentService
         {
             await transaction.RollbackAsync();
             throw;
+        }
+    }
+
+    private async Task<string> GenerateUniqueReceiptNoAsync(string prefix)
+    {
+        int nextIndex = 1;
+        while (true)
+        {
+            string candidate = $"{prefix}{nextIndex:D4}";
+            bool existsInDb = await _dbContext.Payments.AnyAsync(p => p.ReceiptNo == candidate);
+            bool existsInLocal = _dbContext.Payments.Local.Any(p => p.ReceiptNo == candidate);
+            if (!existsInDb && !existsInLocal)
+            {
+                return candidate;
+            }
+            nextIndex++;
         }
     }
 

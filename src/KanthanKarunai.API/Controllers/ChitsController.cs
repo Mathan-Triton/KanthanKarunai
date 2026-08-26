@@ -96,6 +96,43 @@ public class ChitsController : BaseApiController
         return Ok(ApiResponse<IEnumerable<PaymentScheduleDto>>.SuccessResponse(schedule, "Schedule fetched successfully"));
     }
 
+    [HttpPost("{id:int}/amount-taken")]
+    [Authorize(Roles = "Admin,Staff")]
+    public async Task<ActionResult<ApiResponse<ChitDto>>> RecordAmountTaken(int id, [FromBody] RecordAmountTakenDto dto)
+    {
+        try
+        {
+            dto.ChitId = id;
+            var chit = await _chitService.RecordAmountTakenAsync(dto);
+            return Ok(ApiResponse<ChitDto>.SuccessResponse(chit, "Chit amount taken recorded and monthly dues updated successfully"));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<ChitDto>.ErrorResponse(ex.Message));
+        }
+    }
+
+    [HttpPost("{id:int}/preview-amount-taken")]
+    public ActionResult<ApiResponse<AmountTakenPreviewDto>> PreviewAmountTaken(int id, [FromQuery] decimal amountTaken, [FromQuery] int amountTakenMonth, [FromQuery] decimal interestRate = 1.0m)
+    {
+        try
+        {
+            var preview = _chitService.PreviewAmountTaken(id, amountTaken, amountTakenMonth, interestRate);
+            return Ok(ApiResponse<AmountTakenPreviewDto>.SuccessResponse(preview, "Amount taken calculation preview generated"));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<AmountTakenPreviewDto>.ErrorResponse(ex.Message));
+        }
+    }
+
+    [HttpGet("pending-dues")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<PendingChitDueItemDto>>>> GetPendingChitDues([FromQuery] string? query)
+    {
+        var dues = await _chitService.GetPendingChitDuesAsync(query);
+        return Ok(ApiResponse<IEnumerable<PendingChitDueItemDto>>.SuccessResponse(dues, "Pending Chit Dues fetched successfully"));
+    }
+
     [HttpPost("{id:int}/generate-schedule")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<IEnumerable<PaymentScheduleDto>>>> GenerateSchedule(int id)

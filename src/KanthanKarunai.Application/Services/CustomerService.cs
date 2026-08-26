@@ -102,6 +102,90 @@ public class CustomerService : ICustomerService
         };
     }
 
+    public async Task<CustomerSummaryDto?> GetCustomerSummaryAsync(int id)
+    {
+        var c = await _dbContext.Customers
+            .Include(c => c.Chits)
+            .Include(c => c.PaymentSchedules)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (c == null) return null;
+
+        var activeChit = c.Chits.FirstOrDefault(ch => ch.Status == Domain.Enums.ChitStatus.ACTIVE)
+                         ?? c.Chits.OrderByDescending(ch => ch.CreatedAt).FirstOrDefault();
+
+        var summary = new CustomerSummaryDto
+        {
+            CustomerId = c.Id,
+            CustomerCode = c.CustomerCode,
+            Name = c.Name,
+            MobileNo = c.MobileNo,
+            AlternativeMobile = c.AlternativeMobile,
+            Address = c.Address,
+            City = c.City,
+            AadhaarNumber = c.AadhaarNumber,
+            JoinDate = c.JoinDate,
+            Status = c.Status
+        };
+
+        if (activeChit != null)
+        {
+            summary.ChitId = activeChit.Id;
+            summary.ChitName = activeChit.ChitName;
+            summary.ChitAmount = activeChit.TotalChitAmount;
+            summary.AmountTaken = activeChit.AmountTaken;
+            summary.AmountTakenMonth = activeChit.AmountTakenMonth;
+            summary.AmountTakenDate = activeChit.AmountTakenDate;
+            summary.OriginalMonthlyPayment = activeChit.PaymentAmount;
+            summary.CurrentMonthlyPayment = activeChit.AdjustedMonthlyPayment ?? activeChit.PaymentAmount;
+            summary.Duration = activeChit.Duration;
+
+            var schedules = c.PaymentSchedules
+                .Where(ps => ps.ChitId == activeChit.Id)
+                .OrderBy(ps => ps.InstallmentNo)
+                .ToList();
+
+            // Total Paid Amount = sum of actual successful payments made by this customer for this chit
+            // Amount Taken is NOT added to Paid Amount
+            summary.TotalPaidAmount = schedules.Sum(s => s.PaidAmount);
+            summary.CurrentPendingAmount = schedules.Sum(s => s.PendingAmount);
+
+            // Current Month Payment calculation: find first non-paid installment
+            var currentInstallment = schedules.FirstOrDefault(s => s.Status != Domain.Enums.PaymentStatus.PAID);
+            if (currentInstallment != null)
+            {
+                summary.PaidThisMonth = currentInstallment.PaidAmount;
+                summary.PendingThisMonth = currentInstallment.PendingAmount;
+            }
+            else
+            {
+                summary.PaidThisMonth = 0;
+                summary.PendingThisMonth = 0;
+            }
+
+            int completed = schedules.Count(s => s.Status == Domain.Enums.PaymentStatus.PAID);
+            summary.CompletedMonths = completed;
+            summary.RemainingMonths = Math.Max(0, activeChit.Duration - completed);
+            summary.RemainingCollection = schedules.Where(s => s.Status != Domain.Enums.PaymentStatus.PAID).Sum(s => s.PendingAmount);
+
+            // Populate Payment History
+            summary.PaymentHistory = schedules.Select(s => new CustomerSummaryPaymentItemDto
+            {
+                InstallmentNo = s.InstallmentNo,
+                MonthName = $"Month {s.InstallmentNo}",
+                DueDate = s.DueDate,
+                Expected = s.ExpectedAmount,
+                Paid = s.PaidAmount,
+                Pending = s.PendingAmount,
+                Status = s.Status.ToString(),
+                IsAmountTakenMonth = (activeChit.AmountTakenMonth.HasValue && activeChit.AmountTakenMonth.Value == s.InstallmentNo),
+                AmountTaken = (activeChit.AmountTakenMonth.HasValue && activeChit.AmountTakenMonth.Value == s.InstallmentNo) ? activeChit.AmountTaken : null
+            }).ToList();
+        }
+
+        return summary;
+    }
+
     public async Task<CustomerDto> CreateCustomerAsync(CreateCustomerDto dto)
     {
         // 1. Mobile number validation
