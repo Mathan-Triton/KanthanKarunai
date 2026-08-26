@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KanthanKarunai.API/KanthanKarunai.API.csproj" />
+    <Project Path="src/KanthanKarunai.Application/KanthanKarunai.Application.csproj" />
+    <Project Path="src/KanthanKarunai.Domain/KanthanKarunai.Domain.csproj" />
+    <Project Path="src/KanthanKarunai.Infrastructure/KanthanKarunai.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KanthanKarunai.IntegrationTests/KanthanKarunai.IntegrationTests.csproj" />
+    <Project Path="tests/KanthanKarunai.UnitTests/KanthanKarunai.UnitTests.csproj" />
+  </Folder>
+</Solution>
