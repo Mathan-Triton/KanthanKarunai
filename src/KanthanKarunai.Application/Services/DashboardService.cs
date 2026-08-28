@@ -151,13 +151,16 @@ public class DashboardService : IDashboardService
             .Include(p => p.Customer)
             .OrderByDescending(p => p.PaymentDate)
             .Take(10)
-            .Select(p => new TodayCollectionItemDto
+            .Select(p => new DashboardRecentPaymentDto
             {
+                Id = p.Id,
+                CustomerId = p.CustomerId,
                 CustomerName = p.Customer != null ? p.Customer.Name : "Unknown",
-                PaymentAmount = p.Amount,
+                PaymentType = "CHIT",
+                Amount = p.Amount,
                 PaymentMethod = p.PaymentMethod.ToString(),
-                PaymentTime = p.PaymentDate,
-                ReceiptNumber = p.ReceiptNo
+                PaymentDate = p.PaymentDate,
+                ReceiptNo = p.ReceiptNo
             })
             .ToListAsync();
 
@@ -165,24 +168,27 @@ public class DashboardService : IDashboardService
             .Include(p => p.Customer)
             .OrderByDescending(p => p.PaymentDate)
             .Take(10)
-            .Select(p => new TodayCollectionItemDto
+            .Select(p => new DashboardRecentPaymentDto
             {
+                Id = p.Id,
+                CustomerId = p.CustomerId,
                 CustomerName = p.Customer != null ? p.Customer.Name : "Unknown",
-                PaymentAmount = p.Amount,
+                PaymentType = "LOAN",
+                Amount = p.Amount,
                 PaymentMethod = p.PaymentMethod.ToString(),
-                PaymentTime = p.PaymentDate,
-                ReceiptNumber = p.ReceiptNo
+                PaymentDate = p.PaymentDate,
+                ReceiptNo = p.ReceiptNo
             })
             .ToListAsync();
 
         var recentPayments = recentChitPayments.Concat(recentLoanPayments)
-            .OrderByDescending(p => p.PaymentTime)
+            .OrderByDescending(p => p.PaymentDate)
             .Take(10)
             .ToList();
 
         foreach (var rp in recentPayments)
         {
-            rp.PaymentTime = DateTime.SpecifyKind(rp.PaymentTime, DateTimeKind.Utc).AddHours(5.5);
+            rp.PaymentDate = DateTime.SpecifyKind(rp.PaymentDate, DateTimeKind.Utc).AddHours(5.5);
         }
 
         // 6. Last 7 Days chart

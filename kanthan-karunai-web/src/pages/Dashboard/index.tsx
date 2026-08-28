@@ -35,7 +35,8 @@ export default function Dashboard() {
     fetchDashboard();
   }, []);
 
-  const formatRupee = (amount: number) => {
+  const formatRupee = (amount?: number) => {
+    if (amount === undefined || amount === null || isNaN(Number(amount))) return '₹0';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -43,9 +44,11 @@ export default function Dashboard() {
     }).format(amount);
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
     try {
       const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '-';
       return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     } catch {
       return dateStr;
@@ -225,20 +228,26 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {summary.recentPayments.map((p) => (
-                  <tr key={p.id}>
-                    <td>{formatDate(p.paymentDate)}</td>
-                    <td style={{ fontWeight: 600 }}>{p.customerName}</td>
-                    <td>
-                      <span className={`badge ${p.paymentType === 'CHIT' ? 'badge-active' : 'badge-advance'}`}>
-                        {p.paymentType}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--success)', fontWeight: 700 }}>{formatRupee(p.amount)}</td>
-                    <td>{p.paymentMethod}</td>
-                    <td style={{ fontFamily: 'monospace', color: 'var(--accent-gold)', fontWeight: 600 }}>{p.receiptNo}</td>
-                  </tr>
-                ))}
+                {summary.recentPayments.map((p, idx) => {
+                  const payDate = p.paymentDate || (p as any).paymentTime;
+                  const payAmt = p.amount ?? (p as any).paymentAmount ?? 0;
+                  const payType = p.paymentType || 'CHIT';
+                  const receipt = p.receiptNo || (p as any).receiptNumber || '-';
+                  return (
+                    <tr key={p.id ? `${payType}-${p.id}` : idx}>
+                      <td>{formatDate(payDate)}</td>
+                      <td style={{ fontWeight: 600 }}>{p.customerName || 'Unknown'}</td>
+                      <td>
+                        <span className={`badge ${payType === 'CHIT' ? 'badge-active' : 'badge-advance'}`}>
+                          {payType}
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--success)', fontWeight: 700 }}>{formatRupee(payAmt)}</td>
+                      <td>{p.paymentMethod || 'CASH'}</td>
+                      <td style={{ fontFamily: 'monospace', color: 'var(--accent-gold)', fontWeight: 600 }}>{receipt}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
