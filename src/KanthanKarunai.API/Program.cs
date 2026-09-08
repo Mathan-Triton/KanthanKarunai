@@ -32,9 +32,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo 
     { 
-        Title = "Kanthan Karunai Chit Fund API", 
+        Title = "DigiChit Fund API", 
         Version = "v1",
-        Description = "API endpoints for Kanthan Karunai Chit Fund Management System"
+        Description = "API endpoints for DigiChit Fund Management System"
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -153,7 +153,7 @@ if (app.Environment.IsDevelopment() || true) // Enable Swagger in all environmen
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Kanthan Karunai Chit Fund API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "DigiChit Fund API v1");
     });
 }
 

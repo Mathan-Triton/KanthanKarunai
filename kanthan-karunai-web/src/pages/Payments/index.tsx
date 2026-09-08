@@ -423,7 +423,7 @@ export default function Payments() {
             </button>
             
             <div style={{ textAlign: 'center', borderBottom: '2px dashed #94a3b8', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px' }}>KANTHAN KARUNAI CHIT FUND</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px' }}>DIGICHIT CHIT FUND</h2>
               <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.15em', marginTop: '0.25rem' }}>OFFICIAL MONTHLY PAYMENT RECEIPT</p>
             </div>
 

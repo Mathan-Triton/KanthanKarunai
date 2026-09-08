@@ -743,7 +743,7 @@ export default function CustomerDetails() {
           <div className="card" style={{ background: '#fff', color: '#1e293b', border: '1px solid #e2e8f0' }} id="printable-statement">
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #334155', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
               <div>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>KANTHAN KARUNAI CHIT FUND</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>DIGICHIT CHIT FUND</h2>
                 <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.05em' }}>LEDGER ACCOUNT STATEMENT</p>
               </div>
               <div>
@@ -893,7 +893,7 @@ export default function CustomerDetails() {
               <X size={20} />
             </button>
             <div style={{ textAlign: 'center', borderBottom: '2px dashed #94a3b8', paddingBottom: '1rem', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>KANTHAN KARUNAI</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>DIGICHIT</h2>
               <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.1em' }}>PAYMENT RECEIPT</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '1rem' }}>
