@@ -27,10 +27,25 @@ public class DashboardSummaryDto
     public decimal NetCashFlow { get; set; }
 
     public List<TodayCollectionItemDto> TodayCollectionList { get; set; } = new();
-    public List<TodayCollectionItemDto> RecentPayments { get; set; } = new();
+    public List<DashboardRecentPaymentDto> RecentPayments { get; set; } = new();
     public List<ChartItemDto> DailyCollectionChart { get; set; } = new();
     public List<ChartItemDto> MonthlyCollectionChart { get; set; } = new();
     public List<FrequencyDistributionDto> PaymentFrequencyDistribution { get; set; } = new();
+}
+
+public class DashboardRecentPaymentDto
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public required string CustomerName { get; set; }
+    public required string PaymentType { get; set; } // "CHIT" or "LOAN"
+    public decimal Amount { get; set; }
+    public decimal PaymentAmount => Amount;
+    public DateTime PaymentDate { get; set; }
+    public DateTime PaymentTime => PaymentDate;
+    public string? PaymentMethod { get; set; }
+    public required string ReceiptNo { get; set; }
+    public string ReceiptNumber => ReceiptNo;
 }
 
 public class TodayCollectionItemDto

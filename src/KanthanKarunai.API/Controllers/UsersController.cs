@@ -19,15 +19,18 @@ public class UsersController : BaseApiController
     private readonly ApplicationDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public UsersController(
         ApplicationDbContext context,
         IPasswordHasher passwordHasher,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
 
     [HttpGet]
@@ -109,9 +112,18 @@ public class UsersController : BaseApiController
             return NotFound(ApiResponse<UserDto>.ErrorResponse("User not found."));
         }
 
-        if (user.Username.Equals("Mathan", StringComparison.OrdinalIgnoreCase))
+        if (user.Id == _currentUserService.UserId)
         {
-            return BadRequest(ApiResponse<UserDto>.ErrorResponse("Cannot deactivate the primary Admin account."));
+            return BadRequest(ApiResponse<UserDto>.ErrorResponse("Cannot deactivate your own logged-in account."));
+        }
+
+        if (user.Role == UserRole.Admin && user.IsActive)
+        {
+            var activeAdminCount = await _context.Users.CountAsync(u => u.Role == UserRole.Admin && u.IsActive);
+            if (activeAdminCount <= 1)
+            {
+                return BadRequest(ApiResponse<UserDto>.ErrorResponse("Cannot deactivate the last remaining active Admin account."));
+            }
         }
 
         var oldValue = new { user.IsActive };
@@ -171,14 +183,18 @@ public class UsersController : BaseApiController
             return NotFound(ApiResponse<UserDto>.ErrorResponse("User not found."));
         }
 
-        if (user.Username.Equals("Mathan", StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest(ApiResponse<UserDto>.ErrorResponse("Cannot change role of primary Admin account."));
-        }
-
         if (!Enum.TryParse<UserRole>(dto.Role, true, out var newRole))
         {
             return BadRequest(ApiResponse<UserDto>.ErrorResponse("Invalid user role."));
+        }
+
+        if (user.Role == UserRole.Admin && newRole != UserRole.Admin)
+        {
+            var activeAdminCount = await _context.Users.CountAsync(u => u.Role == UserRole.Admin && u.IsActive);
+            if (activeAdminCount <= 1)
+            {
+                return BadRequest(ApiResponse<UserDto>.ErrorResponse("Cannot change role of the only active Admin account."));
+            }
         }
 
         var oldValue = new { user.Role };
@@ -220,9 +236,18 @@ public class UsersController : BaseApiController
             return NotFound(ApiResponse<object>.ErrorResponse("User not found."));
         }
 
-        if (user.Username.Equals("Mathan", StringComparison.OrdinalIgnoreCase))
+        if (user.Id == _currentUserService.UserId)
         {
-            return BadRequest(ApiResponse<object>.ErrorResponse("Cannot delete primary Admin account."));
+            return BadRequest(ApiResponse<object>.ErrorResponse("Cannot delete your own logged-in account."));
+        }
+
+        if (user.Role == UserRole.Admin)
+        {
+            var activeAdminCount = await _context.Users.CountAsync(u => u.Role == UserRole.Admin && u.IsActive);
+            if (activeAdminCount <= 1)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Cannot delete the only active Admin account."));
+            }
         }
 
         _context.Users.Remove(user);

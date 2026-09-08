@@ -13,14 +13,15 @@ public static class DatabaseSeeder
         // Apply pending migrations automatically
         await context.Database.MigrateAsync();
 
-        // 1. Seed admin user if none exists
-        if (!await context.Users.AnyAsync(u => u.Username == "Mathan"))
+        // 1. Seed or ensure Admin user (Username: Admin / Password: Admin@123)
+        var adminUser = await context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
+        if (adminUser == null)
         {
-            var adminUser = new User
+            adminUser = new User
             {
-                Username = "Mathan",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Mathan@302"),
-                FullName = "Mathan Kumar (Admin)",
+                Username = "Admin",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                FullName = "System Administrator",
                 Role = UserRole.Admin,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -28,6 +29,13 @@ public static class DatabaseSeeder
             };
 
             context.Users.Add(adminUser);
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123");
+            adminUser.IsActive = true;
+            adminUser.Role = UserRole.Admin;
             await context.SaveChangesAsync();
         }
     }

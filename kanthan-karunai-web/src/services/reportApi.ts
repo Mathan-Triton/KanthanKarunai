@@ -27,8 +27,8 @@ export interface DashboardSummary {
     receiptNumber: string;
   }[];
   recentPayments?: {
-    id: string;
-    customerId: number;
+    id: number | string;
+    customerId?: number;
     customerName: string;
     paymentType: string;
     amount: number;

@@ -3,8 +3,6 @@ import { useParams } from 'react-router-dom';
 import { customerApi, Customer, CustomerSummary } from '../../services/customerApi';
 import { chitApi, Chit, PaymentSchedule, ChitPayout } from '../../services/chitApi';
 import { paymentApi, Payment } from '../../services/paymentApi';
-import { loansApi } from '../../api/loansApi';
-import { CustomerLoan, LoanPayment } from '../../types/loan';
 import { reportApi, CustomerStatement } from '../../services/reportApi';
 import { 
   User, 
@@ -14,10 +12,9 @@ import {
   FileSpreadsheet, 
   Plus, 
   Printer, 
-  X,
+  X, 
   IndianRupee,
-  CreditCard,
-  Coins
+  CreditCard
 } from 'lucide-react';
 
 export default function CustomerDetails() {
@@ -27,14 +24,12 @@ export default function CustomerDetails() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [summary, setSummary] = useState<CustomerSummary | null>(null);
   const [chits, setChits] = useState<Chit[]>([]);
-  const [loans, setLoans] = useState<CustomerLoan[]>([]);
   const [schedules, setSchedules] = useState<PaymentSchedule[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [loanPayments, setLoanPayments] = useState<LoanPayment[]>([]);
   const [payouts, setPayouts] = useState<ChitPayout[]>([]);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'chits' | 'loans' | 'payments' | 'schedule' | 'payouts' | 'statement'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'chits' | 'payments' | 'schedule' | 'payouts' | 'statement'>('overview');
   const [loading, setLoading] = useState(true);
 
   // Modal Control
@@ -65,20 +60,16 @@ export default function CustomerDetails() {
       const cust = await customerApi.getCustomerById(customerId);
       setCustomer(cust);
 
-      const [allChits, payHistory, custLoans, custLoanPays, stmt, custSummary] = await Promise.all([
+      const [allChits, payHistory, stmt, custSummary] = await Promise.all([
         chitApi.getChits(),
         paymentApi.getCustomerPayments(customerId),
-        loansApi.getCustomerLoans(customerId),
-        loansApi.getCustomerLoanPayments(customerId),
         reportApi.getCustomerStatement(customerId).catch(() => null),
         customerApi.getCustomerSummary(customerId).catch(() => null)
       ]);
 
       const customerChits = allChits.filter(c => c.customerId === customerId);
       setChits(customerChits);
-      setLoans(custLoans.data || []);
       setPayments(payHistory);
-      setLoanPayments(custLoanPays.data || []);
       setStatement(stmt);
       setSummary(custSummary);
 
@@ -206,37 +197,21 @@ export default function CustomerDetails() {
     );
   }
 
-  // Unified Payment history (Chits + Loans)
-  const unifiedHistory = [
-    ...payments.map(p => ({
-      id: `CHIT-${p.id}`,
-      type: 'CHIT',
-      date: p.paymentDate,
-      reference: p.chitName || 'Monthly Chit',
-      month: p.paymentMonth || formatDate(p.paymentDate),
-      amount: p.amount,
-      method: p.paymentMethod,
-      receiptNo: p.receiptNo,
-      collectedBy: p.collectedByName || 'Staff',
-      raw: p
-    })),
-    ...loanPayments.map(lp => ({
-      id: `LOAN-${lp.id}`,
-      type: 'LOAN',
-      date: lp.paymentDate,
-      reference: lp.loanNumber || 'Customer Loan',
-      month: lp.paymentMonth || formatDate(lp.paymentDate),
-      amount: lp.amount,
-      method: lp.paymentMethod,
-      receiptNo: lp.receiptNo,
-      collectedBy: lp.collectedByName || 'Staff',
-      raw: lp
-    }))
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Payment history
+  const paymentHistory = payments.map(p => ({
+    id: `CHIT-${p.id}`,
+    type: 'CHIT',
+    date: p.paymentDate,
+    reference: p.chitName || 'Monthly Chit',
+    month: p.paymentMonth || formatDate(p.paymentDate),
+    amount: p.amount,
+    method: p.paymentMethod,
+    receiptNo: p.receiptNo,
+    collectedBy: p.collectedByName || 'Staff',
+    raw: p
+  })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const activeChit = chits.find(c => c.status === 'ACTIVE');
-  const activeLoanCount = loans.filter(l => l.status === 'ACTIVE').length;
-  const totalLoanOutstanding = loans.filter(l => l.status === 'ACTIVE').reduce((sum, l) => sum + l.remainingAmount, 0);
 
   return (
     <div className="fade-in">
@@ -293,7 +268,7 @@ export default function CustomerDetails() {
       {/* Financial Metrics Strip */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
         gap: '1rem',
         marginBottom: '2rem'
       }}>
@@ -309,14 +284,6 @@ export default function CustomerDetails() {
           <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Chit Pending Amount</p>
           <h4 style={{ fontSize: '1.25rem', marginTop: '0.25rem', color: 'var(--error)' }}>{formatRupee(chits.reduce((s, c) => s + (c.pendingAmount || 0), 0))}</h4>
         </div>
-        <div className="card" style={{ padding: '1rem 1.25rem', borderLeft: '3px solid #6366f1' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Active Loans</p>
-          <h4 style={{ fontSize: '1.25rem', marginTop: '0.25rem', color: '#818cf8' }}>{activeLoanCount} Loans</h4>
-        </div>
-        <div className="card" style={{ padding: '1rem 1.25rem', borderLeft: '3px solid #f59e0b' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Loan Outstanding</p>
-          <h4 style={{ fontSize: '1.25rem', marginTop: '0.25rem', color: '#f59e0b' }}>{formatRupee(totalLoanOutstanding)}</h4>
-        </div>
       </div>
 
       {/* Tabs Menu */}
@@ -330,8 +297,7 @@ export default function CustomerDetails() {
         {[
           { id: 'overview', label: 'Customer Overview', icon: User },
           { id: 'chits', label: `Chit Subscriptions (${chits.length})`, icon: CalendarRange },
-          { id: 'loans', label: `Loans (${loans.length})`, icon: Coins },
-          { id: 'payments', label: `Unified Payments (${unifiedHistory.length})`, icon: Receipt },
+          { id: 'payments', label: `Payments (${paymentHistory.length})`, icon: Receipt },
           { id: 'schedule', label: 'Chit Schedule', icon: CalendarRange },
           { id: 'payouts', label: 'Payouts', icon: Award },
           { id: 'statement', label: 'Ledger Statement', icon: FileSpreadsheet }
@@ -581,34 +547,6 @@ export default function CustomerDetails() {
                 </div>
               )}
 
-              {/* Active Loans Card */}
-              {loans.length > 0 && (
-                <div className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h3 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Coins size={18} style={{ color: '#818cf8' }} />
-                      Active Loans
-                    </h3>
-                    <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} onClick={() => setActiveTab('loans')}>
-                      View All
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {loans.map(l => (
-                      <div key={l.id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <div>
-                          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, fontFamily: 'monospace', color: '#818cf8' }}>{l.loanNumber}</h4>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Principal: {formatRupee(l.loanAmount)} | Monthly: {formatRupee(l.installmentAmount)}</span>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--error)', fontWeight: 700 }}>Remaining: {formatRupee(l.remainingAmount)}</span>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Paid: {formatRupee(l.totalPaid)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -654,54 +592,11 @@ export default function CustomerDetails() {
           </div>
         )}
 
-        {/* LOANS TAB */}
-        {activeTab === 'loans' && (
-          <div className="card">
-            <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', fontFamily: 'var(--font-display)' }}>Customer Loans</h3>
-            {loans.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)' }}>No loans registered for this customer.</p>
-            ) : (
-              <div className="table-container">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Loan Number</th>
-                      <th>Principal Amount</th>
-                      <th>Interest Amount</th>
-                      <th>Total Loan Amount</th>
-                      <th>Monthly Payment</th>
-                      <th>Total Paid</th>
-                      <th>Remaining Amount</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loans.map(l => (
-                      <tr key={l.id}>
-                        <td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#818cf8' }}>{l.loanNumber}</td>
-                        <td>{formatRupee(l.loanAmount)}</td>
-                        <td>{formatRupee(l.interestAmount)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--accent-gold)' }}>{formatRupee(l.totalRecoverable)}</td>
-                        <td>{formatRupee(l.installmentAmount)}</td>
-                        <td style={{ color: 'var(--success)', fontWeight: 600 }}>{formatRupee(l.totalPaid)}</td>
-                        <td style={{ color: 'var(--error)', fontWeight: 700 }}>{formatRupee(l.remainingAmount)}</td>
-                        <td>
-                          <span className={`badge ${l.status === 'ACTIVE' ? 'badge-active' : 'badge-completed'}`}>{l.status}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* UNIFIED PAYMENTS TAB */}
+        {/* PAYMENTS TAB */}
         {activeTab === 'payments' && (
           <div className="card">
-            <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', fontFamily: 'var(--font-display)' }}>Complete Payment History (Chits & Loans)</h3>
-            {unifiedHistory.length === 0 ? (
+            <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', fontFamily: 'var(--font-display)' }}>Chit Payment History</h3>
+            {paymentHistory.length === 0 ? (
               <p style={{ color: 'var(--text-muted)' }}>No transaction history recorded.</p>
             ) : (
               <div className="table-container">
@@ -709,7 +604,6 @@ export default function CustomerDetails() {
                   <thead>
                     <tr>
                       <th>Date</th>
-                      <th>Category</th>
                       <th>Reference / Group</th>
                       <th>Payment Month</th>
                       <th>Amount Paid</th>
@@ -720,14 +614,9 @@ export default function CustomerDetails() {
                     </tr>
                   </thead>
                   <tbody>
-                    {unifiedHistory.map((item) => (
+                    {paymentHistory.map((item) => (
                       <tr key={item.id}>
                         <td>{formatDate(item.date)}</td>
-                        <td>
-                          <span className={`badge ${item.type === 'CHIT' ? 'badge-active' : 'badge-advance'}`}>
-                            {item.type === 'CHIT' ? 'CHIT' : 'LOAN'}
-                          </span>
-                        </td>
                         <td style={{ fontWeight: 600 }}>{item.reference}</td>
                         <td style={{ color: 'var(--accent-gold)', fontWeight: 600 }}>{item.month}</td>
                         <td style={{ color: 'var(--success)', fontWeight: 700 }}>{formatRupee(item.amount)}</td>
