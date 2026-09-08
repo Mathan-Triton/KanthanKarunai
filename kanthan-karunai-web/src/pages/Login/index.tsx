@@ -117,7 +117,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 id="username"
                 className="form-control"
                 type="text"
-                placeholder="Enter admin username"
+                placeholder="Enter your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{ paddingLeft: '2.5rem' }}
@@ -140,7 +140,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 id="password"
                 className="form-control"
                 type="password"
-                placeholder="Enter password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ paddingLeft: '2.5rem' }}
@@ -165,7 +165,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           fontSize: '0.75rem',
           color: 'var(--text-muted)'
         }}>
-          Authorized Personnel Only. Default Admin: Mathan / Mathan@302
+          Authorized Personnel Only • Secure Access Portal
         </div>
       </div>
     </div>
