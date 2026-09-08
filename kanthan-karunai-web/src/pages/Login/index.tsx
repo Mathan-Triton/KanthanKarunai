@@ -77,7 +77,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             <KeyRound size={28} />
           </div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem', fontFamily: 'var(--font-display)' }}>
-            KANTHAN KARUNAI
+            DIGICHIT
           </h2>
           <p style={{ color: 'var(--accent-gold)', fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.1em' }}>
             CHIT FUND MANAGEMENT

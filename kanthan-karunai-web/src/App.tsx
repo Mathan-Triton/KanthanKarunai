@@ -100,7 +100,7 @@ function Sidebar({ user, onLogout }: SidebarProps) {
         gap: '0.25rem'
       }}>
         <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' }}>
-          KANTHAN KARUNAI
+          DIGICHIT
         </h2>
         <span style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--accent-gold)', letterSpacing: '0.15em' }}>
           CHIT FUND MANAGEMENT

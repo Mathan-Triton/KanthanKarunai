@@ -475,7 +475,7 @@ export default function PendingPayments() {
               <X size={20} />
             </button>
             <div style={{ textAlign: 'center', borderBottom: '2px dashed #94a3b8', paddingBottom: '1rem', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>KANTHAN KARUNAI CHIT FUND</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>DIGICHIT CHIT FUND</h2>
               <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.1em' }}>PAYMENT RECEIPT</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '1rem' }}>

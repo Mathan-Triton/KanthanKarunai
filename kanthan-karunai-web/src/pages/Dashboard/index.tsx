@@ -80,7 +80,7 @@ export default function Dashboard() {
     <div className="fade-in">
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '0.25rem' }}>Dashboard Overview</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Welcome to Kanthan Karunai Customer & Chit Management System</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Welcome to DigiChit Customer & Chit Management System</p>
       </div>
 
       {/* Core Metric Cards */}
