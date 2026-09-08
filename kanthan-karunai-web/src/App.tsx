@@ -10,9 +10,6 @@ import CustomerDetails from './pages/CustomerDetails';
 import Chits from './pages/Chits';
 import Payments from './pages/Payments';
 import PendingPayments from './pages/PendingPayments';
-import Loans from './pages/Loans';
-import LoanDetails from './pages/Loans/LoanDetails';
-import LoanPayments from './pages/LoanPayments';
 import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
 import Expenses from './pages/Expenses';
@@ -31,7 +28,6 @@ import {
   Coins,
   LogOut,
   Bell,
-  CreditCard,
   User as UserIcon
 } from 'lucide-react';
 
@@ -53,8 +49,6 @@ function Sidebar({ user, onLogout }: SidebarProps) {
         { path: '/chits', label: 'Chit Management', icon: ShieldCheck },
         { path: '/payments', label: 'Chit Payments', icon: IndianRupee },
         { path: '/pending-payments', label: 'Pending Chit Dues', icon: Clock },
-        { path: '/loans', label: 'Customer Loans', icon: Coins },
-        { path: '/loan-payments', label: 'Loan Payments', icon: CreditCard },
         { path: '/expenses', label: 'Services / Expenses', icon: Coins },
         { path: '/reports', label: 'Reports Portal', icon: BarChart3 },
         { path: '/notifications', label: 'Notifications Log', icon: Bell },
@@ -70,7 +64,6 @@ function Sidebar({ user, onLogout }: SidebarProps) {
       return [
         { path: '/customer-dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/customer-dashboard?tab=overview', label: 'My Chit', icon: ShieldCheck },
-        { path: '/customer-dashboard?tab=loans', label: 'My Loans', icon: IndianRupee },
         { path: '/customer-dashboard?tab=schedule', label: 'My Schedule', icon: Clock },
         { path: '/customer-dashboard?tab=statement', label: 'My Statement', icon: BarChart3 }
       ];
@@ -110,7 +103,7 @@ function Sidebar({ user, onLogout }: SidebarProps) {
           KANTHAN KARUNAI
         </h2>
         <span style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--accent-gold)', letterSpacing: '0.15em' }}>
-          CHIT & LOAN MANAGEMENT
+          CHIT FUND MANAGEMENT
         </span>
       </div>
 
@@ -282,9 +275,6 @@ export default function App() {
                   <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
                   <Route path="/customers" element={<AdminRoute><Customers /></AdminRoute>} />
                   <Route path="/customers/:id" element={<AdminRoute><CustomerDetails /></AdminRoute>} />
-                  <Route path="/loans" element={<AdminRoute><Loans /></AdminRoute>} />
-                  <Route path="/loans/:id" element={<AdminRoute><LoanDetails /></AdminRoute>} />
-                  <Route path="/loan-payments" element={<AdminRoute><LoanPayments /></AdminRoute>} />
                   <Route path="/expenses" element={<AdminRoute><Expenses /></AdminRoute>} />
                   <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
                   <Route path="/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />

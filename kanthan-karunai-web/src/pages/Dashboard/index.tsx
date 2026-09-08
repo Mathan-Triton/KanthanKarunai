@@ -6,10 +6,7 @@ import {
   IndianRupee, 
   Clock, 
   TrendingUp, 
-  Wallet, 
   Layers, 
-  Coins, 
-  AlertCircle, 
   Receipt, 
   ArrowRight 
 } from 'lucide-react';
@@ -83,10 +80,10 @@ export default function Dashboard() {
     <div className="fade-in">
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '0.25rem' }}>Dashboard Overview</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Welcome to Kanthan Karunai Customer, Chit & Loan Management System</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Welcome to Kanthan Karunai Customer & Chit Management System</p>
       </div>
 
-      {/* 9 Core Metric Cards */}
+      {/* Core Metric Cards */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
@@ -119,20 +116,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 3: Active Loans */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'pointer' }} onClick={() => navigate('/loans')}>
-          <div style={{ padding: '0.875rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: 'var(--radius-md)', color: '#818cf8' }}>
-            <Coins size={24} />
-          </div>
-          <div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Active Loans</p>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.15rem', color: '#818cf8' }}>
-              {summary.activeLoans} <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Accounts</span>
-            </h3>
-          </div>
-        </div>
-
-        {/* 4: Today's Collections */}
+        {/* 3: Today's Collections */}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'pointer' }} onClick={() => navigate('/payments')}>
           <div style={{ padding: '0.875rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: 'var(--radius-md)', color: 'var(--success)' }}>
             <IndianRupee size={24} />
@@ -145,7 +129,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 5: This Month Collections */}
+        {/* 4: This Month Collections */}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'pointer' }} onClick={() => navigate('/payments')}>
           <div style={{ padding: '0.875rem', background: 'rgba(16, 185, 129, 0.15)', borderRadius: 'var(--radius-md)', color: '#34d399' }}>
             <TrendingUp size={24} />
@@ -158,7 +142,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 6: Pending Chit Payments */}
+        {/* 5: Pending Chit Payments */}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'pointer' }} onClick={() => navigate('/pending-payments')}>
           <div style={{ padding: '0.875rem', background: 'rgba(244, 63, 94, 0.1)', borderRadius: 'var(--radius-md)', color: 'var(--error)' }}>
             <Clock size={24} />
@@ -170,40 +154,14 @@ export default function Dashboard() {
             </h3>
           </div>
         </div>
-
-        {/* 7: Pending Loan Payments */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'pointer' }} onClick={() => navigate('/loan-payments')}>
-          <div style={{ padding: '0.875rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-md)', color: '#f87171' }}>
-            <AlertCircle size={24} />
-          </div>
-          <div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Pending Loan Payments</p>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.15rem', color: '#f87171' }}>
-              {formatRupee(summary.pendingLoanPayments ?? 0)}
-            </h3>
-          </div>
-        </div>
-
-        {/* 8: Total Outstanding Loan Amount */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'pointer' }} onClick={() => navigate('/loans')}>
-          <div style={{ padding: '0.875rem', background: 'rgba(245, 158, 11, 0.1)', borderRadius: 'var(--radius-md)', color: 'var(--warning)' }}>
-            <Wallet size={24} />
-          </div>
-          <div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Outstanding Loan Balance</p>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.15rem', color: 'var(--warning)' }}>
-              {formatRupee(summary.totalOutstandingLoanAmount ?? 0)}
-            </h3>
-          </div>
-        </div>
       </div>
 
-      {/* 9: Recent Payments (Chit & Loan combined) */}
+      {/* Recent Payments */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '2.5rem' }}>
         <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Receipt style={{ color: 'var(--accent-gold)' }} />
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Recent Payments (Chits & Loans)</h3>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Recent Payments</h3>
           </div>
           <button className="btn btn-secondary" onClick={() => navigate('/payments')} style={{ fontSize: '0.85rem', padding: '0.35rem 0.85rem' }}>
             View All Ledger <ArrowRight size={14} />
